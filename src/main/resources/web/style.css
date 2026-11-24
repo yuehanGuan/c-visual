@@ -467,3 +467,16 @@ button.ghost { background: transparent; }
 .mem .mem-arrow-label { font: 10px var(--mono); fill: #a9b3c9; paint-order: stroke; stroke: #0e1016; stroke-width: 2.5px; stroke-linejoin: round; }
 .mem .ptr-arrow { stroke: #d0a9ff; }
 .mem .ptr-miss { font: 11px var(--mono); fill: #d0a9ff; }
+.mem .frame.frame-in { animation: mem-frame-in .22s ease-out both; }
+@keyframes mem-frame-in {
+  from { opacity: 0; transform: translateY(-14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.mem .frame.frame-return .frame-box { animation: mem-frame-return .4s ease-out both; }
+@keyframes mem-frame-return {
+  0% { stroke: #4ade80; stroke-width: 1.8; }
+  100% { stroke: #262c3b; stroke-width: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mem .frame.frame-in, .mem .frame.frame-return .frame-box { animation: none; }
+}

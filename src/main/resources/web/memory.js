@@ -291,7 +291,7 @@ const Memory = (() => {
   }
 
   /* One frame card: header + variable rows. */
-  function renderFrame(frame, prevFrame, y, width, heapAddrs) {
+  function renderFrame(frame, prevFrame, y, width, heapAddrs, anim) {
     const vars = (frame && frame.vars) || [];
     const prevVars = {};
     ((prevFrame && prevFrame.vars) || []).forEach((v) => { prevVars[v.name] = v; });
@@ -303,7 +303,8 @@ const Memory = (() => {
     const addrPoints = {};
     const ptrLinks = [];
     const parts = [];
-    parts.push(`<g class="frame" data-depth="${frame.depth}">`);
+    const animCls = anim && frame.depth === 0 ? ' frame-' + anim : '';
+    parts.push(`<g class="frame${animCls}" data-depth="${frame.depth}">`);
     parts.push(`<rect class="frame-box" x="12" y="${y}" width="${cardW - 24}" height="${height}" rx="8"/>`);
     parts.push(`<text class="frame-fn" x="24" y="${y + 22}">${escapeHtml(frame.fn || '?')}</text>`);
     parts.push(`<text class="frame-depth" x="${cardW - 24}" y="${y + 22}" text-anchor="end">栈深 ${frame.depth}</text>`);
@@ -493,6 +494,11 @@ const Memory = (() => {
     }
     const width = Math.max(container.clientWidth || 520, 320);
     const prevFrames = (prevStep && prevStep.frames) || [];
+    /* Push / pop transitions: a new innermost frame slides in, a return
+     * flashes the frame we came back to.  No animation on the first paint. */
+    const anim = !prevStep ? ''
+      : (frames.length > prevFrames.length ? 'in'
+        : (frames.length < prevFrames.length ? 'return' : ''));
     const prevByKey = indexPrevFrames(prevFrames);
     const heapAddrs = {};
     ((step && step.heap) || []).forEach((b) => { if (b && b.addr) heapAddrs[b.addr] = true; });
@@ -503,7 +509,7 @@ const Memory = (() => {
     const ptrLinks = [];
     let y = 34;
     frames.forEach((frame) => {
-      const rendered = renderFrame(frame, prevByKey[frameKey(frame)], y, width, heapAddrs);
+      const rendered = renderFrame(frame, prevByKey[frameKey(frame)], y, width, heapAddrs, anim);
       body.push(rendered.svg);
       rendered.anchors.forEach((a) => anchors.push(a));
       Object.keys(rendered.addrPoints || {}).forEach((addr) => {
@@ -538,6 +544,7 @@ const Memory = (() => {
       summary +
       `<svg class="mem" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"` +
       ` data-ptr-drawn="${ptr.drawn}" data-ptr-miss="${ptr.miss}"` +
+      ` data-frame-anim="${anim || 'none'}"` +
       ` data-ptr-debug="${escapeHtml(JSON.stringify(ptr.debug)).replace(/"/g, '&quot;')}">` +
       defs + head + body.join('') + '</svg>';
   }
