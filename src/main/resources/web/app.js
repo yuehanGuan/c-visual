@@ -73,6 +73,54 @@ int main() {
 
   const el = {};
 
+  const STDIN_KEY = 'cppviz.stdinSets';
+  let stdinList = [{ text: '' }];
+  let stdinIdx = 0;
+  let stdinTimer = 0;
+
+  function readStdinSets() {
+    try {
+      const raw = localStorage.getItem(STDIN_KEY);
+      const list = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(list) && list.length && list.every((s) => s && typeof s.text === 'string')) {
+        return list;
+      }
+    } catch (ignored) {
+      // corrupt or unavailable storage: start fresh
+    }
+    return [{ text: '' }];
+  }
+
+  function saveStdinSets() {
+    try {
+      localStorage.setItem(STDIN_KEY, JSON.stringify(stdinList));
+    } catch (ignored) {
+      // private mode: keep working in memory
+    }
+  }
+
+  function renderStdinBar() {
+    el.stdinSet.innerHTML = stdinList.map((_, i) => `<option value="${i}">测试数据 ${i + 1}</option>`).join('');
+    el.stdinSet.value = String(stdinIdx);
+    el.stdinDel.disabled = stdinList.length <= 1;
+  }
+
+  function loadStdinSet(index) {
+    stdinIdx = Math.max(0, Math.min(stdinList.length - 1, index));
+    el.stdin.value = stdinList[stdinIdx].text || '';
+    renderStdinBar();
+  }
+
+  function stashStdin() {
+    stdinList[stdinIdx] = { text: el.stdin.value };
+    saveStdinSets();
+  }
+
+  function initStdinSets() {
+    stdinList = readStdinSets();
+    loadStdinSet(0);
+  }
+
   function $(id) {
     return document.getElementById(id);
   }
@@ -164,6 +212,7 @@ int main() {
   }
 
   async function run() {
+    stashStdin();
     stop();
     hideBanner();
     el.runBtn.disabled = true;
@@ -387,6 +436,26 @@ int main() {
       showDialog('清空历史记录',
         '将删除 ~/.cppviz/runs 下的所有历史 trace，无法恢复。确定继续？', clearRuns);
     });
+
+    el.stdinSet.addEventListener('change', () => {
+      stashStdin();
+      loadStdinSet(Number(el.stdinSet.value));
+    });
+    el.stdin.addEventListener('input', () => {
+      if (stdinTimer) clearTimeout(stdinTimer);
+      stdinTimer = setTimeout(stashStdin, 250);
+    });
+    el.stdinAdd.addEventListener('click', () => {
+      stashStdin();
+      stdinList.push({ text: '' });
+      loadStdinSet(stdinList.length - 1);
+      el.stdin.focus();
+    });
+    el.stdinDel.addEventListener('click', () => {
+      if (stdinList.length <= 1) return;
+      stdinList.splice(stdinIdx, 1);
+      loadStdinSet(Math.min(stdinIdx, stdinList.length - 1));
+    });
     el.dialogOk.addEventListener('click', () => {
       const action = dialogOnOk;
       el.dialog.classList.add('hidden');
@@ -442,6 +511,9 @@ int main() {
     el.samples = $('samples');
     el.maxSteps = $('maxSteps');
     el.stdin = $('stdin');
+    el.stdinSet = $('stdinSet');
+    el.stdinAdd = $('stdinAdd');
+    el.stdinDel = $('stdinDel');
     el.editBtn = $('editBtn');
     el.foldBtn = $('foldBtn');
     el.clearRuns = $('clearRuns');
@@ -450,6 +522,7 @@ int main() {
     el.dialogText = $('dialogText');
     el.dialogOk = $('dialogOk');
     el.dialogCancel = $('dialogCancel');
+    initStdinSets();
 
     CppEditor.init();
     CppEditor.setValue(SAMPLES.basic);

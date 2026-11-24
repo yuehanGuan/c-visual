@@ -4,8 +4,8 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.1.4（2026-11-24，T-1 + T-3.1/2/3/4 完成）
-- 最后验证：`./smoke.sh` → **PASS**（2026-11-24 22:20，T-3.4 后复测）
+- 版本：v2.1.5（2026-11-24，T-1 + T-3.1–3.5 完成）
+- 最后验证：`./smoke.sh` → **PASS**（2026-11-24 22:35，T-3.5 后复测）
 
 ---
 
@@ -41,19 +41,19 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 ### 0.4 每轮收工必须回写
 1. 本文件 §1（当前状态）
 2. 本文件 §7 顶部加一条 ≤5 行日志
-3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K43 往后编）
+3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K44 往后编）
 
 ---
 
 ## 1. 当前状态
 
 - **能用了**：`./run.sh` 启动，浏览器自动打开，输入任意 C++ 代码 → 逐行回放 + 内存图
-- **T-1 已完成**：B1/B2 已修，见 §4；**T-3.1/2/3/4 已完成**；下一件 T-3.5（stdin 多组数据）
+- **T-1 已完成**：B1/B2 已修，见 §4；**T-3.1–3.5 已完成**；下一件 T-3.6（TLE 回放最后 200 步）
 - **阻塞**：无
 - **已知 bug**：1 个（B3，只影响手工在 `/tmp` 下测试，不影响产品）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
-- **代码规模**：Java 848 行｜前端 2356 行（含 html/css）｜Python（tracer）716 行
-- **累计 token**：约 **1.75M 净内容** / 约 5.0M 原始
+- **代码规模**：Java 848 行｜前端 2438 行（含 html/css）｜Python（tracer）716 行
+- **累计 token**：约 **1.78M 净内容** / 约 5.1M 原始
 
 ---
 
@@ -83,7 +83,7 @@ src/main/resources/web/      index.html style.css app.js(播放器) memory.js(SV
                              editor.js(代码高亮) views.js(兜底) timeline.js(轨迹) calltree.js(调用树)
 tracer/tracer.py             LLDB 内嵌 Python，逐行断点 → JSONL
 docs/TRACE_SCHEMA.md         数据契约（引擎 ↔ UI）
-docs/PITFALLS.md             坑 K1–K43
+docs/PITFALLS.md             坑 K1–K44
 orders/                      派单文件 + README(模板)
 samples/                     basic vector recursion compile_error stl qs glob maponly
 logs/                        归档日志 + 截图
@@ -193,7 +193,10 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
    - 新增 `POST /api/runs/clear` → `{"cleared": N}`，与 `run()` 共用锁（清空时不会正好在跑）
    - 工具条「清空历史」按钮 + 复用 dialog 做二次确认（新增「取消」，确定后显示"已清空 N 份历史"）
    - 实测：30 份 → 清空后 0 份；旧 traceId 返回 404；清空后再次运行正常
-5. **stdin 多组测试数据**（M3 遗留）
+5. **stdin 多组测试数据** ✅ 已完成（2026-11-24，T-3.5，对齐 M3「切换数据集重跑」）
+   - stdin 面板加切换条：「测试数据 1..N」下拉 + ＋新建 + 删除（只剩一组时删除禁用）
+   - 每组内容存 localStorage（`cppviz.stdinSets`），切换/刷新不丢；输入 250ms 防抖暂存
+   - 运行前强制暂存当前组；实测：组1「1 2」→ 输出 3，切到组2「10 20」→ 输出 30，刷新后两组仍在
 6. **TLE 回放最后 200 步**（M3 遗留）
 
 ---
@@ -216,6 +219,11 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 ---
 
 ## 7. 进度日志（倒序，每条 ≤5 行）
+
+### 2026-11-24 · T-3.5 stdin 多组数据（v2.1.5）
+- 下拉切换 + 新建/删除，每组独立存 localStorage；运行时自动暂存当前组
+- 验收（CDP 真操作）：组1→输出 3、组2→输出 30、刷新后两组都在
+- 坑：程序输出只在最后一步显示，读输出前必须把 scrub 拖到最后（K44）
 
 ### 2026-11-24 · T-3.4 清空 run 历史（v2.1.4）
 - 后端 `POST /api/runs/clear`（共用 lock，返回 cleared 数）；前端「清空历史」+ 二次确认
@@ -266,6 +274,7 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 | T-3.2 `}` 归属提示 | ≈0.03M | ≈0.09M |
 | T-3.3 压栈动画 | ≈0.02M | ≈0.06M |
 | T-3.4 清空历史 | ≈0.03M | ≈0.09M |
-| **累计** | **≈1.75M** | **≈5.0M** |
+| T-3.5 stdin 多组 | ≈0.03M | ≈0.09M |
+| **累计** | **≈1.78M** | **≈5.1M** |
 
 **省 token 的关键**：本文件（≈3k token）替代聊天历史（几十 k）；派单前只读 §1/§4/§5 与相关坑。

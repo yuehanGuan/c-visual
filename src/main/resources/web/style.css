@@ -245,6 +245,10 @@ button.ghost { background: transparent; }
   resize: vertical;
   outline: 0;
 }
+.io .stdin-bar { display: flex; gap: 8px; align-items: center; padding: 8px 14px 0; }
+.io .stdin-bar select { flex: 0 0 140px; }
+.io .stdin-bar button { padding: 3px 10px; font-size: 12px; }
+.io .stdin-bar button:disabled { opacity: .45; cursor: not-allowed; }
 
 /* ---------- frames ---------- */
 .frames {
