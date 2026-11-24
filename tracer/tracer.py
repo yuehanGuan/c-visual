@@ -38,6 +38,9 @@ _ended = False
 _src = ""
 _src_name = ""
 _max_frames = 64
+# Per-node payload cap: a 2000-element array over 300 steps made a 5 MB trace.
+# `size` still reports the true count; only the items list is cut.
+_MAX_ITEMS = 200
 # guard: names seen in the previous step, per live frame activation
 _prev_vars = {}
 
@@ -304,17 +307,24 @@ def _node(value, heap=None):
             count = value.GetNumChildren()
             if elem is not None and elem.IsArrayType():
                 cols = elem.size()
+                row_limit = count if count <= _MAX_ITEMS else _MAX_ITEMS
+                col_limit = cols if cols <= 50 else 50
                 rows = []
-                for i in range(count):
+                for i in range(row_limit):
                     row = value.GetChildAtIndex(i)
-                    rows.append([_text(row.GetChildAtIndex(j)) for j in range(cols)])
+                    rows.append([_text(row.GetChildAtIndex(j)) for j in range(col_limit)])
                 node.update(kind="grid", rows=rows, rowsCount=count, cols=cols)
+                if count > _MAX_ITEMS or cols > 50:
+                    node["truncated"] = True
             else:
+                limit = count if count <= _MAX_ITEMS else _MAX_ITEMS
                 node.update(
                     kind="seq",
                     size=count,
-                    items=[_text(value.GetChildAtIndex(i)) for i in range(count)],
+                    items=[_text(value.GetChildAtIndex(i)) for i in range(limit)],
                 )
+                if count > _MAX_ITEMS:
+                    node["truncated"] = True
                 if load_addr is not None:
                     node["dataAddr"] = hex(load_addr)
             return node
@@ -349,8 +359,11 @@ def _node(value, heap=None):
 
         if "vector<" in type_name or "deque<" in type_name:
             size = value.GetNumChildren()
-            items = [_text(value.GetChildAtIndex(i)) for i in range(size)]
+            limit = size if size <= _MAX_ITEMS else _MAX_ITEMS
+            items = [_text(value.GetChildAtIndex(i)) for i in range(limit)]
             node.update(kind="seq", size=size, items=items)
+            if size > _MAX_ITEMS:
+                node["truncated"] = True
             elem_size = None
             elem_type = "?"
             try:
@@ -427,7 +440,9 @@ def _node(value, heap=None):
         if "string" in type_name:
             summary = value.GetSummary() or ""
             text = summary.strip('"')
-            node.update(kind="text", value=text, chars=list(text))
+            node.update(kind="text", value=text[:_MAX_ITEMS], chars=list(text[:_MAX_ITEMS]))
+            if len(text) > _MAX_ITEMS:
+                node["truncated"] = True
             return node
 
         if _is_record(vtype):

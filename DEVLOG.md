@@ -4,8 +4,8 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.2.0（2026-11-24，T-1 + T-3 全部完成）
-- 最后验证：`./smoke.sh` → **PASS**（2026-11-24 22:38，T-3.6 后复测）
+- 版本：v2.2.1（2026-11-24，T-1 + T-3 完成 + trace 体积治理）
+- 最后验证：`./smoke.sh` → **PASS**（2026-11-24 23:04，T-3.7 后复测）
 
 ---
 
@@ -41,19 +41,19 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 ### 0.4 每轮收工必须回写
 1. 本文件 §1（当前状态）
 2. 本文件 §7 顶部加一条 ≤5 行日志
-3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K44 往后编）
+3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K45 往后编）
 
 ---
 
 ## 1. 当前状态
 
 - **能用了**：`./run.sh` 启动，浏览器自动打开，输入任意 C++ 代码 → 逐行回放 + 内存图
-- **T-1 已完成**：B1/B2 已修；**T-3.1–3.6 全部完成**；下一件等新需求（M3 其余项见 PLAN §M3）
+- **T-1 已完成**：B1/B2 已修；**T-3 完成**；新增 T-3.7 trace 体积治理；T-4 候选见 §5
 - **阻塞**：无
 - **已知 bug**：1 个（B3，只影响手工在 `/tmp` 下测试，不影响产品）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
-- **代码规模**：Java 848 行｜前端 2446 行（含 html/css）｜Python（tracer）716 行
-- **累计 token**：约 **1.81M 净内容** / 约 5.2M 原始
+- **代码规模**：Java 848 行｜前端 2453 行（含 html/css）｜Python（tracer）731 行
+- **累计 token**：约 **1.84M 净内容** / 约 5.3M 原始
 
 ---
 
@@ -83,7 +83,7 @@ src/main/resources/web/      index.html style.css app.js(播放器) memory.js(SV
                              editor.js(代码高亮) views.js(兜底) timeline.js(轨迹) calltree.js(调用树)
 tracer/tracer.py             LLDB 内嵌 Python，逐行断点 → JSONL
 docs/TRACE_SCHEMA.md         数据契约（引擎 ↔ UI）
-docs/PITFALLS.md             坑 K1–K44
+docs/PITFALLS.md             坑 K1–K45
 orders/                      派单文件 + README(模板)
 samples/                     basic vector recursion compile_error stl qs glob maponly
 logs/                        归档日志 + 截图
@@ -173,6 +173,13 @@ LLDB 内嵌 Python 的 `sys.stdout` 于是变成 **US-ASCII + errors="ignore"**�
 ### T-2 ~~若 B2 仍在，专项排查~~ ✅ 已取消
 B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4），无需包装器。
 
+### T-3.7 trace 体积治理 ✅ 已完成（2026-11-24）
+- 触发：`int a[2000]` + 300 步的 trace 有 **5.0 MB**（每节点 2000 个元素），画布还会画 2000 个格子
+- tracer：数组/二维数组/vector/deque 每节点最多 200 项、二维每行最多 50 列、string 最多 200 字符；
+  `size` 仍是真实长度，超限节点带 `truncated: true` → 同用例 trace **5.0 MB → 597 KB**
+- 画布：单元格上限按可用宽度算（640px 容器约 11 个），不再画出屏幕
+- 验收：`smoke.sh` PASS（23:04）；无头浏览器 `.cell` 11 个、SVG 宽 595
+
 ### T-3 优化候选（按价值排序）
 1. **指针箭头视觉增强** ✅ 已完成（2026-11-24，T-3.1）
    - `stroke-width` 1.5→2.4、opacity .85→.95、marker 7→9px、青/紫提亮、标签加暗色描边
@@ -222,6 +229,11 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 ---
 
 ## 7. 进度日志（倒序，每条 ≤5 行）
+
+### 2026-11-24 · T-3.7 trace 体积治理（v2.2.1）
+- 容器逐节点上限 200（二维 200×50、string 200），`size` 保留真实值 + `truncated`
+- 同用例 trace 5.0 MB → 597 KB；画布单元格按宽度算上限（11 个），不再溢出
+- 坑：局部大数组会按元素展开进 trace（K45）
 
 ### 2026-11-24 · T-3.6 TLE 尾部回放（v2.2.0）
 - 截断运行自动跳到「总步数 − 200」并切 10×（45ms/步），banner 说明
@@ -284,6 +296,7 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 | T-3.4 清空历史 | ≈0.03M | ≈0.09M |
 | T-3.5 stdin 多组 | ≈0.03M | ≈0.09M |
 | T-3.6 TLE 尾部 | ≈0.02M | ≈0.06M |
-| **累计** | **≈1.81M** | **≈5.2M** |
+| T-3.7 trace 体积 | ≈0.03M | ≈0.09M |
+| **累计** | **≈1.84M** | **≈5.3M** |
 
 **省 token 的关键**：本文件（≈3k token）替代聊天历史（几十 k）；派单前只读 §1/§4/§5 与相关坑。

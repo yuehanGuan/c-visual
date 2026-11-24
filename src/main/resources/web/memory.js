@@ -327,7 +327,8 @@ const Memory = (() => {
         anchors.push({ addr: node.dataAddr, x: cardW - 26, y: rowY + ROW_H / 2, from: true });
         if (!heapAddrs[node.dataAddr]) {
           const prev = prevVars[node.name];
-          const cells = renderCells(node.items, node.capacity, prev ? prev.items : null);
+          const cells = renderCells(node.items, node.capacity,
+            prev ? prev.items : null, (cardW - 40) / (CELL_W + CELL_GAP));
           parts.push(`<g class="stack-array" transform="translate(24, ${rowY + ROW_H + 8})">${cells.svg}</g>`);
           rowY += STACK_ARRAY_EXTRA;
         }
@@ -339,8 +340,13 @@ const Memory = (() => {
   }
 
   /* A row of memory cells: one rect per item, ghost slots for spare capacity. */
-  function renderCells(items, capacity, prevItems) {
-    const list = Array.isArray(items) ? items : [];
+  const MAX_CELLS = 24;
+
+  function renderCells(items, capacity, prevItems, maxCells) {
+    const raw = Array.isArray(items) ? items : [];
+    /* Huge arrays must not become a 10k-pixel-wide row: draw the head only. */
+    const limit = Math.max(4, Math.floor(maxCells || MAX_CELLS));
+    const list = raw.length > limit ? raw.slice(0, limit) : raw;
     /* null prevItems = no baseline frame: mark nothing changed. */
     const hasPrev = Array.isArray(prevItems);
     const prev = hasPrev ? prevItems : [];
@@ -385,7 +391,8 @@ const Memory = (() => {
     let by = y + 22;
     blocks.forEach((b) => {
       const prev = b.addr ? prevByAddr[b.addr] : null;
-      const cells = renderCells(b.items, b.capacity, prev ? prev.items : null);
+      const cells = renderCells(b.items, b.capacity,
+        prev ? prev.items : null, (width - 40) / (CELL_W + CELL_GAP));
       const count = b.count !== undefined ? b.count : (b.items || []).length;
       const capTxt = b.capacity === undefined ? '' : `  cap ${b.capacity}`;
       const head = `${addrShort(b.addr)}  ${b.type || '?'}[${count}]${capTxt}`;
