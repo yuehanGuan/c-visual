@@ -306,8 +306,12 @@ const Memory = (() => {
     const animCls = anim && frame.depth === 0 ? ' frame-' + anim : '';
     parts.push(`<g class="frame${animCls}" data-depth="${frame.depth}">`);
     parts.push(`<rect class="frame-box" x="12" y="${y}" width="${cardW - 24}" height="${height}" rx="8"/>`);
+    if (anim && frame.depth === 0) {
+      parts.push(`<rect class="frame-accent" x="12" y="${y}" width="3" height="${height}" rx="1.5"/>`);
+    }
     parts.push(`<text class="frame-fn" x="24" y="${y + 22}">${escapeHtml(frame.fn || '?')}</text>`);
-    parts.push(`<text class="frame-depth" x="${cardW - 24}" y="${y + 22}" text-anchor="end">栈深 ${frame.depth}</text>`);
+    const animTag = anim && frame.depth === 0 ? (anim === 'in' ? '压栈 · ' : '返回 · ') : '';
+    parts.push(`<text class="frame-depth" x="${cardW - 24}" y="${y + 22}" text-anchor="end">${animTag}栈深 ${frame.depth}</text>`);
     parts.push(`<line class="frame-rule" x1="24" y1="${y + 30}" x2="${cardW - 24}" y2="${y + 30}"/>`);
     let rowY = y + FRAME_TOP;
     vars.forEach((node) => {
