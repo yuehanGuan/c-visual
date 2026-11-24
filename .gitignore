@@ -1,0 +1,11 @@
+# 构建产物
+out/
+*.class
+*.dSYM/
+
+# 运行时产物
+logs/
+*.log
+
+# 系统
+.DS_Store

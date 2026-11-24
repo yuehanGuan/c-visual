@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>C/C++ 代码可视化</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">C++</span>
+    <span class="title">代码可视化</span>
+    <span class="badge">M1</span>
+  </div>
+  <div class="actions">
+    <select id="samples" title="载入示例">
+      <option value="basic">示例：变量与循环</option>
+      <option value="vector">示例：vector 扩容</option>
+      <option value="recursion">示例：递归 fib</option>
+    </select>
+    <label class="field">
+      步数上限
+      <input id="maxSteps" type="number" min="50" max="20000" step="50" value="5000">
+    </label>
+    <button id="editBtn" class="ghost hidden">编辑代码</button>
+    <button id="foldBtn" class="ghost">折叠：开</button>
+    <button id="runBtn" class="primary">运行 ▶</button>
+  </div>
+</header>
+
+<div id="banner" class="banner hidden"></div>
+
+<main class="layout">
+  <section class="pane code-pane">
+    <div class="pane-head">
+      <span>代码</span>
+      <span id="codeHint" class="hint"></span>
+    </div>
+    <div class="editor">
+      <div id="gutter" class="gutter"></div>
+      <textarea id="source" spellcheck="false" autocomplete="off"></textarea>
+      <div id="codeView" class="code-view hidden"></div>
+    </div>
+    <details class="io">
+      <summary>测试数据（stdin）</summary>
+      <textarea id="stdin" spellcheck="false" placeholder="程序从标准输入读取的数据，例如：&#10;5&#10;1 2 3 4 5"></textarea>
+    </details>
+  </section>
+
+  <section class="pane vars-pane">
+    <div class="pane-head">
+      <span>变量与栈帧</span>
+      <span id="engineTag" class="hint"></span>
+    </div>
+    <div id="frames" class="frames">
+      <p class="empty">点右上角「运行 ▶」开始</p>
+    </div>
+    <div id="timeline" class="timeline"></div>
+    <div class="pane-head sub">
+      <span>程序输出</span>
+    </div>
+    <pre id="programOutput" class="output"></pre>
+  </section>
+</main>
+
+<footer class="controls">
+  <button id="prevBtn" title="上一步 (←)">◀</button>
+  <button id="nextBtn" title="下一步 (→)">▶</button>
+  <button id="playBtn" class="primary" title="播放/暂停 (空格)">播放</button>
+  <input id="scrub" type="range" min="0" max="0" value="0" title="拖动跳转">
+  <span id="counter" class="counter">0 / 0</span>
+  <label class="field">
+    速度
+    <select id="speed">
+      <option value="900">0.5×</option>
+      <option value="450" selected>1×</option>
+      <option value="220">2×</option>
+      <option value="90">5×</option>
+    </select>
+  </label>
+  <span id="status" class="status"></span>
+</footer>
+
+<div id="dialog" class="dialog hidden">
+  <div class="dialog-box">
+    <h3 id="dialogTitle">提示</h3>
+    <p id="dialogText"></p>
+    <button id="dialogOk" class="primary">知道了</button>
+  </div>
+</div>
+
+<script src="/editor.js"></script>
+<script src="/views.js"></script>
+<script src="/memory.js"></script>
+<script src="/timeline.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
