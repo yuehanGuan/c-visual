@@ -328,7 +328,9 @@ const Memory = (() => {
       }
       parts.push(renderSlot(node, prevVars[node.name], frame, rowY, cardW));
       if (node && node.kind === 'seq' && node.dataAddr) {
-        anchors.push({ addr: node.dataAddr, x: cardW - 26, y: rowY + ROW_H / 2, from: true });
+        /* Start on the card border: cardW - 26 is where the address text ends,
+         * so the arrow used to draw straight across "0xc00". */
+        anchors.push({ addr: node.dataAddr, x: cardW - 14, y: rowY + ROW_H / 2, from: true });
         if (!heapAddrs[node.dataAddr]) {
           const prev = prevVars[node.name];
           const cells = renderCells(node.items, node.capacity,
@@ -404,7 +406,10 @@ const Memory = (() => {
       parts.push(`<text class="heap-head" x="16" y="${by + 12}">${escapeHtml(head)}</text>`);
       parts.push(`<g transform="translate(16, ${by + 20})">${cells.svg}</g>`);
       parts.push('</g>');
-      anchors.push({ addr: b.addr, x: 16 + cells.width, y: by + 20 + 26, from: false });
+      /* Stop the arrow just right of the last cell: the arrowhead used to
+       * cover the final value (a 40px cell showing "20" looked like "2"). */
+      const tipX = Math.min(width - 12, 16 + cells.width + 14);
+      anchors.push({ addr: b.addr, x: tipX, y: by + 20 + 26, from: false });
       by += BLOCK_H + BLOCK_GAP;
     });
     return { svg: parts.join(''), height: by - BLOCK_GAP - y, anchors: anchors };
@@ -421,8 +426,9 @@ const Memory = (() => {
       const ax = a.x, ay = a.y, bx = b.x, by = b.y;
       const mx = (ax + bx) / 2;
       const lx = mx, ly = (ay + by) / 2 - 6;
-      const dir = Math.sign(bx - ax) || 1;
-      const cx1 = ax + dir * 16, cx2 = bx + dir * 16;
+      /* Leave the row toward the right gutter and approach the block from its
+       * right side, even when the block sits to the left of the row. */
+      const cx1 = ax + 16, cx2 = bx + 16;
       const d = ax === bx ? `M ${ax},${ay} L ${bx},${by}` : `M ${ax},${ay} C ${cx1},${ay} ${cx2},${by} ${bx},${by}`;
       parts.push(`<path class="mem-arrow" marker-end="url(#mem-arrow)" d="${d}"/>`);
       parts.push(`<text class="mem-arrow-label" x="${lx}" y="${ly}" text-anchor="middle">${escapeHtml(addrShort(a.addr))}</text>`);
