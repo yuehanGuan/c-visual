@@ -675,7 +675,8 @@ def bootstrap():
     """Set up breakpoints. Must run after this module finished importing."""
     global _max_steps, _src, _src_name
 
-    _src = os.path.realpath(os.environ.get("VIZ_SRC", ""))
+    raw_src = os.path.abspath(os.environ.get("VIZ_SRC", ""))
+    _src = os.path.realpath(raw_src)
     _src_name = os.path.basename(_src)
     _max_steps = int(os.environ.get("VIZ_MAX_STEPS", "5000"))
 
@@ -699,29 +700,44 @@ def bootstrap():
 
     # Breakpoints live on the user's own file only.  Header/STL code gets none,
     # which is what collapses e.g. sort() into a single step.
+    # The debug info records the path as it was compiled, which may be the
+    # /tmp form while realpath() gives /private/tmp on macOS.  Try both.
+    candidates = []
+    for candidate in (raw_src, _src):
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+
     placed = 0
     duplicates = 0
-    seen = set()
-    for line in range(1, total_lines + 1):
-        bp = target.BreakpointCreateByLocation(_src, line)
-        if not bp.IsValid() or bp.GetNumLocations() == 0:
-            if bp.IsValid():
-                target.BreakpointDelete(bp.GetID())
-            continue
-        key = _addr_key(bp)
-        if key is not None:
-            if key in seen:
-                target.BreakpointDelete(bp.GetID())
-                duplicates += 1
+    used = ""
+    for candidate in candidates:
+        placed = 0
+        duplicates = 0
+        seen = set()
+        for line in range(1, total_lines + 1):
+            bp = target.BreakpointCreateByLocation(candidate, line)
+            if not bp.IsValid() or bp.GetNumLocations() == 0:
+                if bp.IsValid():
+                    target.BreakpointDelete(bp.GetID())
                 continue
-            seen.add(key)
-        bp.SetScriptCallbackFunction(__name__ + "._on_hit")
-        placed += 1
+            key = _addr_key(bp)
+            if key is not None:
+                if key in seen:
+                    target.BreakpointDelete(bp.GetID())
+                    duplicates += 1
+                    continue
+                seen.add(key)
+            bp.SetScriptCallbackFunction(__name__ + "._on_hit")
+            placed += 1
+        used = candidate
+        if placed:
+            break
 
     _emit(
         {
             "t": "meta",
             "src": _src,
+            "srcUsed": used,
             "engine": "lldb",
             "lines": total_lines,
             "breakpoints": placed,

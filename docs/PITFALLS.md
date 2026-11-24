@@ -36,7 +36,7 @@
 | K27 | 地址匹配**必须按数值**（`Number(addr)`）比对，字符串相等在实测中会失败 | P0-G 才修好 |
 | K28 | 给 SVG 加 `data-*` 统计属性（drawn/miss/debug），能让"画不出来"立刻可量化，省掉猜测轮次 | 强烈推荐 |
 | K29 | **未构造完的 `std::map` 会让 libc++ formatter 在 C++ 层死循环**，Python 无法中断 | 必须避免读声明步的容器 |
-| K30 | `os.path.abspath` 不解析符号链接（/tmp→/private/tmp），会让 lldb 断点全失效 → 用 `realpath` | |
+| K30 | **建断点的路径要试两种形式**：`realpath` 会把 `/tmp/x.cpp` 变成 `/private/tmp/x.cpp`，而二进制调试信息里写的是编译时的 `/tmp/x.cpp` → 断点 0 个。先试 `abspath`，`placed == 0` 再试 `realpath`（旧结论"用 realpath"是错的，见 B3/T-4.3） | T-4.3 实测 |
 | K31 | 安全展开容器的正解：**变量首次出现的那一步不读它**（未构造对象会卡死 formatter），下一步再读 | `_prev_vars` 守卫 |
 | K32 | 库内部静态变量的声明文件为空，`GetDeclaration` 过滤无效 → 改用**名字过滤**（含 `std::` 或 `::` 就跳过），且必须先把全局的 `::` 前缀剥掉 | P2-E |
 | K33 | 适配器类型名里含底层容器名（`queue<int, deque<int>>` 含 `deque<`）→ **queue/stack 的分支必须放在 vector/deque 之前**，否则被误判成 seq | P3-C 实测 |

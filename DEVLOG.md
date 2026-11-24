@@ -4,8 +4,8 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.2.3（2026-11-24，T-1 + T-3 完成 + T-4.2 深递归提示）
-- 最后验证：`./smoke.sh` → **PASS**（2026-11-24 23:12，T-3.8 后复测；T-4.2 只改前端 banner）
+- 版本：v2.2.4（2026-11-24，T-1/T-3/T-4 全部完成）
+- 最后验证：`./smoke.sh` → **PASS**（2026-11-24 23:35，T-4.3 后复测）
 
 ---
 
@@ -41,7 +41,7 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 ### 0.4 每轮收工必须回写
 1. 本文件 §1（当前状态）
 2. 本文件 §7 顶部加一条 ≤5 行日志
-3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K46 往后编）
+3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K47 往后编）
 
 ---
 
@@ -50,10 +50,10 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 - **能用了**：`./run.sh` 启动，浏览器自动打开，输入任意 C++ 代码 → 逐行回放 + 内存图
 - **T-1 已完成**：B1/B2 已修；**T-3 完成**；新增 T-3.7 trace 体积治理；T-4 候选见 §5
 - **阻塞**：无
-- **已知 bug**：1 个（B3，只影响手工在 `/tmp` 下测试，不影响产品）
+- **已知 bug**：0 个（B1/B2/B3 全部修复）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
 - **代码规模**：Java 848 行｜前端 2455 行（含 html/css）｜Python（tracer）731 行
-- **累计 token**：约 **1.87M 净内容** / 约 5.4M 原始
+- **累计 token**：约 **1.88M 净内容** / 约 5.45M 原始
 
 ---
 
@@ -83,7 +83,7 @@ src/main/resources/web/      index.html style.css app.js(播放器) memory.js(SV
                              editor.js(代码高亮) views.js(兜底) timeline.js(轨迹) calltree.js(调用树)
 tracer/tracer.py             LLDB 内嵌 Python，逐行断点 → JSONL
 docs/TRACE_SCHEMA.md         数据契约（引擎 ↔ UI）
-docs/PITFALLS.md             坑 K1–K46
+docs/PITFALLS.md             坑 K1–K47
 orders/                      派单文件 + README(模板)
 samples/                     basic vector recursion compile_error stl qs glob maponly
 logs/                        归档日志 + 截图
@@ -132,7 +132,7 @@ logs/                        归档日志 + 截图
 
 ---
 
-## 4. bug 账（B1/B2 已修，B3 剩余）
+## 4. bug 账（B1/B2/B3 全部已修）
 
 ### B1 · 声明步守卫按 depth 记账，递归下张冠李戴（✅ 已修，T-1）
 原报"`_cur_depth` 少了 `global`"只是表层：模块级 `_cur_depth` 恒为 0 确实会让
@@ -153,11 +153,12 @@ LLDB 内嵌 Python 的 `sys.stdout` 于是变成 **US-ASCII + errors="ignore"**�
 复现：同一个 tracer，`LC_ALL=C lldb ...` 出空串，去掉 `LC_ALL=C` 就正常。
 修法：把整行编码成 UTF-8 写 `sys.stdout.buffer`，异常时退回 `ensure_ascii=True`。
 
-### B3 · `realpath` 这步是错的方向（剩余，不影响产品）
-`bootstrap()` 用 `os.path.realpath` 解析源码路径，本意是修 `/tmp` 符号链接。
-但结果是 `_src` 变成 `/private/tmp/xxx.cpp`，而二进制调试信息里是 `/tmp/xxx.cpp` → 断点 0 个。
-**产品的 run 目录没有符号链接，所以用户不受影响**，只影响手工在 `/tmp` 下测试。
-正确方向：建断点时同时尝试 `abspath` 与 `realpath` 两种路径。
+### B3 · 断点路径：realpath 反而让 `/tmp` 源码断点全失效（✅ 已修，T-4.3）
+原 `bootstrap()` 直接用 `os.path.realpath(VIZ_SRC)`，`/tmp/xxx.cpp` 被换成
+`/private/tmp/xxx.cpp`，而二进制调试信息里是 `/tmp/xxx.cpp` → **断点 0 个、0 步**。
+修法：保留 `raw_src = abspath(...)`，建断点时先试 `abspath`、`placed == 0` 再试 `realpath`，
+meta 里记 `srcUsed` 便于排查。实测 `/tmp` 源码：断点 4、步数 4。
+（K30 的旧结论"用 realpath"正是这个坑的来源，已改写。）
 
 ---
 
@@ -191,7 +192,9 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
      " 栈上至少有 64 层 deep(int)，看起来是递归太深 / 栈溢出。"
    - 实测：`char buf[1<<16]` 无限递归 → `runtime_timeout` + 64 层 deep(int) → 提示正确；
      空指针崩溃（帧数少）不触发，仍是通用文案
-3. **B3 `realpath`** ⬜ 待做（建断点时同时试 abspath 与 realpath）
+3. **B3 `realpath`** ✅ 已完成（2026-11-24，T-4.3）
+   - 建断点先试 `abspath`，`placed == 0` 再试 `realpath`；meta 增加 `srcUsed`
+   - 实测 `/tmp/b3/src.cpp`（调试信息写的是 `/tmp` 形式）：断点 4、4 步；普通路径不受影响
 
 ### T-3.8 单步按钮可读 + 0.25× ✅ 已完成（2026-11-24，用户反馈）
 - `◀` / `▶` 两个裸三角和「播放」太像 → 改成「◀ 上一步 / 下一步 ▶」，`white-space: nowrap`
@@ -247,6 +250,10 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 ---
 
 ## 7. 进度日志（倒序，每条 ≤5 行）
+
+### 2026-11-24 · T-4.3 修 B3（断点路径双候选）（v2.2.4）
+- 建断点先试 abspath 再试 realpath；meta 增 `srcUsed`
+- 实测 /tmp 源码：断点 4、4 步（修复前 0/0）；普通路径不变
 
 ### 2026-11-24 · T-4.2 深递归/栈溢出提示（v2.2.3）
 - 末帧 ≥16 层且 ≥80% 同名 → 超时/崩溃 banner 补"递归太深 / 栈溢出"
@@ -326,6 +333,7 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 | T-3.7 trace 体积 | ≈0.03M | ≈0.09M |
 | T-3.8 单步按钮 | ≈0.01M | ≈0.03M |
 | T-4.2 深递归提示 | ≈0.02M | ≈0.06M |
-| **累计** | **≈1.87M** | **≈5.4M** |
+| T-4.3 修 B3 | ≈0.01M | ≈0.03M |
+| **累计** | **≈1.88M** | **≈5.45M** |
 
 **省 token 的关键**：本文件（≈3k token）替代聊天历史（几十 k）；派单前只读 §1/§4/§5 与相关坑。
