@@ -226,6 +226,7 @@ int main() {
     if (steps.length === 0) {
       el.frames.innerHTML = '<p class="empty">没有产生任何执行步骤</p>';
       el.timeline.innerHTML = '<div class="tl-title">轨迹</div><p class="empty">（无轨迹数据）</p>';
+      el.calltree.innerHTML = '';
       showBanner('这次运行没有记录到任何执行的代码行，程序可能一开始就结束了。', true);
     }
   }
@@ -242,6 +243,7 @@ int main() {
     el.frames.innerHTML = Vars.renderFrames(step.frames, prev ? prev.frames : null);
     Memory.render(el.frames, step, prev);
     Timeline.render(el.timeline, state.steps, clamped);
+    CallTree.render(el.calltree, state.steps, clamped);
     el.counter.textContent = counterText(clamped);
     el.scrub.value = String(clamped);
     const atEnd = clamped === state.steps.length - 1;
@@ -336,6 +338,7 @@ int main() {
       el.editBtn.classList.add('hidden');
       hideBanner();
       el.frames.innerHTML = '<p class="empty">点右上角「运行 ▶」开始</p>';
+      el.calltree.innerHTML = '';
     });
     el.editBtn.addEventListener('click', () => {
       stop();
@@ -377,6 +380,7 @@ int main() {
     el.banner = $('banner');
     el.frames = $('frames');
     el.timeline = $('timeline');
+    el.calltree = $('calltree');
     el.programOutput = $('programOutput');
     el.counter = $('counter');
     el.scrub = $('scrub');

@@ -447,6 +447,17 @@ def _frame_vars(frame, heap=None):
     except Exception:
         return nodes
     prev = _prev_vars.get(_cur_depth, set())
+    # Arguments are always initialised at function entry, so the
+    # declaration-step guard must not apply to them (a recursive call would
+    # otherwise report its own parameter as "being declared").
+    arg_names = set()
+    try:
+        for arg in frame.GetVariables(True, False, False, True):
+            arg_name = (arg.GetName() or "").lstrip(":")
+            if arg_name:
+                arg_names.add(arg_name)
+    except Exception:
+        pass
     seen = set()
     for value in values:
         raw = value.GetName() or ""
@@ -463,7 +474,7 @@ def _frame_vars(frame, heap=None):
         if not _decl_in_src(value):
             continue
         seen.add(name)
-        if name not in prev:
+        if name not in prev and name not in arg_names:
             # First sighting: the object may not be constructed yet.  Never
             # touch its children (libc++ spins forever on half-built maps).
             nodes.append({

@@ -42,23 +42,53 @@ pass "static assets ok (port $PORT)"
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/nope.css")" = "404" ] || fail "missing 404"
 pass "404 ok"
 
+echo "== T2.10 call tree (no lldb needed) =="
+node tests/calltree_test.js > out/calltree_test.log 2>&1 || {
+  cat out/calltree_test.log >&2
+  fail "calltree unit test failed"
+}
+pass "call tree logic ok"
+
 echo "== T0.4 lldb tracer =="
-"$CXX" -std=c++17 -g -O0 -fno-omit-frame-pointer samples/basic.cpp -o out/a.out
+# The debugged binary must NOT live under a TCC-protected directory
+# (~/Documents, ~/Desktop, ~/Downloads).  debugserver is a separate process
+# and macOS silently denies it access there, which makes `lldb -b ... run`
+# hang with no diagnostic.  ~/.cppviz is outside every protected root.
+LDBDIR="${VIZ_LDBDIR:-$HOME/.cppviz/smoke}"
+mkdir -p "$LDBDIR"
+"$CXX" -std=c++17 -g -O0 -fno-omit-frame-pointer samples/basic.cpp -o "$LDBDIR/a.out"
 VIZ_SRC=samples/basic.cpp VIZ_MAX_STEPS=1000 lldb -b \
-  -o "settings set target.output-path out/a.out.txt" \
+  -o "settings set target.output-path $LDBDIR/a.out.txt" \
   -o "command script import $(pwd)/tracer/tracer.py" \
   -o "script import tracer; tracer.bootstrap()" \
   -o run \
   -o "script import tracer; tracer.finish()" \
-  -- out/a.out > out/trace.log 2>&1 || true
+  -- "$LDBDIR/a.out" > out/trace.log 2>&1 || true
 
 VIZ_COUNT=$(grep -c '^VIZ' out/trace.log || true)
 [ "$VIZ_COUNT" -ge 3 ] || fail "expected >=3 VIZ records, got $VIZ_COUNT"
 grep -q '"t": "meta"' out/trace.log || fail "missing meta"
 grep -q '"t": "step"' out/trace.log || fail "missing step"
 grep -q '"t": "end"' out/trace.log || fail "missing end"
-grep -q '^3$' out/a.out.txt || fail "program stdout not redirected"
+grep -q '^3$' "$LDBDIR/a.out.txt" || fail "program stdout not redirected"
 pass "VIZ records=$VIZ_COUNT, program stdout isolated"
+
+echo "== T2.10 recursive call tree (real trace) =="
+cp samples/recursion.cpp "$LDBDIR/recursion.cpp"
+"$CXX" -std=c++17 -g -O0 -fno-omit-frame-pointer "$LDBDIR/recursion.cpp" -o "$LDBDIR/rec.out"
+VIZ_SRC="$LDBDIR/recursion.cpp" VIZ_MAX_STEPS=2000 lldb -b \
+  -o "settings set target.output-path $LDBDIR/rec.txt" \
+  -o "command script import $(pwd)/tracer/tracer.py" \
+  -o "script import tracer; tracer.bootstrap()" \
+  -o run \
+  -o "script import tracer; tracer.finish()" \
+  -- "$LDBDIR/rec.out" > "$LDBDIR/rec.log" 2>&1 || true
+grep -q '"t": "end"' "$LDBDIR/rec.log" || fail "recursion trace did not finish"
+node tests/calltree_trace_test.js "$LDBDIR/rec.log" > out/calltree_trace_test.log 2>&1 || {
+  cat out/calltree_trace_test.log >&2
+  fail "call tree over the real trace is wrong"
+}
+pass "recursive call tree matches the fib(4) activation tree"
 
 echo "== T1.x API outcomes =="
 post() { curl -s -X POST "$BASE/api/run" "$@"; }

@@ -42,3 +42,6 @@
 | K33 | 适配器类型名里含底层容器名（`queue<int, deque<int>>` 含 `deque<`）→ **queue/stack 的分支必须放在 vector/deque 之前**，否则被误判成 seq | P3-C 实测 |
 
 ---
+| K34 | **被调试的二进制不能放在 `~/Documents` / `~/Desktop` / `~/Downloads` 下**：debugserver 是独立进程，macOS TCC 静默拒绝它访问受保护目录，于是 `lldb -b ... run` **挂起且无任何报错**（连 `Process launched` 都不打印）。同一二进制拷到 `/tmp` 或 `~/.cppviz/` 即刻正常 | 症状极具迷惑性：attach 模式正常、立即退出的程序正常、只有 launch 持续运行才挂。排查用对照法：`cp 二进制 /tmp` 再 `lldb run` |
+| K35 | **调用栈帧的身份只能由函数名决定**：把渲染用的 label（含运行时变量值）也算进最长公共前缀匹配，局部变量从 `opaque`(值空) 变成 `scalar`(有值) 时 label 就变了，同一个函数会被误判成不同帧 → 平白多出一个 root | label 只用于显示；匹配只比 `fn` |
+| K36 | 源码里的裸 NUL 字节（`'\x00'` 写成真字节）会让 `file` 报 "data"、`grep` 报 "Binary file matches"，改动时容易整段被跳过 | 写成 `'\u0000'` 转义序列 |
