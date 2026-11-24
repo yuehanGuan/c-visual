@@ -390,6 +390,8 @@ button.ghost { background: transparent; }
 .dialog-box h3 { margin: 0 0 8px; font-size: 15px; }
 .dialog-box p { margin: 0 0 16px; color: var(--muted); font-size: 13.5px; }
 .dialog-box button { width: 100%; }
+.dialog-actions { display: flex; gap: 8px; }
+.dialog-actions button { flex: 1; }
 
 /* --- Memory view (SVG stack of frame cards) --- */
 /* Diff summary bar: what changed in the innermost frame since the last step. */

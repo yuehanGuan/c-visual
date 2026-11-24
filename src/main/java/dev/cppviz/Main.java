@@ -85,6 +85,11 @@ public final class Main {
                 handleRun(exchange);
                 return;
             }
+            if ("/api/runs/clear".equals(path)
+                    && "POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                send(exchange, 200, "application/json; charset=utf-8", Json.write(runs.clearRuns()));
+                return;
+            }
             if (path != null && path.startsWith("/api/trace/")) {
                 handleTrace(exchange, path.substring("/api/trace/".length()));
                 return;

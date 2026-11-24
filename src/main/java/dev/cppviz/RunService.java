@@ -139,6 +139,26 @@ public final class RunService {
         }
     }
 
+    /** Delete every stored run; returns how many directories were removed. */
+    public Map<String, Object> clearRuns() {
+        int removed = 0;
+        synchronized (lock) {
+            try (Stream<Path> entries = Files.list(runsRoot)) {
+                for (Path dir : entries.filter(Files::isDirectory).toList()) {
+                    deleteRecursively(dir);
+                    if (Files.notExists(dir)) {
+                        removed++;
+                    }
+                }
+            } catch (IOException ignored) {
+                // best-effort: the response still reports what was removed
+            }
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("cleared", removed);
+        return out;
+    }
+
     private void pruneOldRuns() {
         try (Stream<Path> entries = Files.list(runsRoot)) {
             List<Path> dirs = entries.filter(Files::isDirectory)

@@ -133,10 +133,26 @@ int main() {
     el.banner.classList.add('hidden');
   }
 
-  function showDialog(title, text) {
+  let dialogOnOk = null;
+
+  function showDialog(title, text, onOk) {
     el.dialogTitle.textContent = title;
     el.dialogText.textContent = text;
+    dialogOnOk = typeof onOk === 'function' ? onOk : null;
+    el.dialogCancel.classList.toggle('hidden', !dialogOnOk);
+    el.dialogOk.textContent = dialogOnOk ? '确定' : '知道了';
     el.dialog.classList.remove('hidden');
+  }
+
+  /** Delete every stored run after the user confirms in the dialog. */
+  async function clearRuns() {
+    try {
+      const response = await fetch('/api/runs/clear', { method: 'POST' });
+      const data = await response.json();
+      el.status.textContent = `已清空 ${data.cleared} 份历史`;
+    } catch (failure) {
+      el.status.textContent = '清空失败：' + failure;
+    }
   }
 
   function diagText(diags) {
@@ -366,9 +382,26 @@ int main() {
       el.foldBtn.textContent = state.folded ? '折叠：开' : '折叠：关';
       if (state.steps.length) goTo(state.idx);
     });
-    el.dialogOk.addEventListener('click', () => el.dialog.classList.add('hidden'));
+
+    el.clearRuns.addEventListener('click', () => {
+      showDialog('清空历史记录',
+        '将删除 ~/.cppviz/runs 下的所有历史 trace，无法恢复。确定继续？', clearRuns);
+    });
+    el.dialogOk.addEventListener('click', () => {
+      const action = dialogOnOk;
+      el.dialog.classList.add('hidden');
+      dialogOnOk = null;
+      if (action) action();
+    });
+    el.dialogCancel.addEventListener('click', () => {
+      el.dialog.classList.add('hidden');
+      dialogOnOk = null;
+    });
     el.dialog.addEventListener('click', (event) => {
-      if (event.target === el.dialog) el.dialog.classList.add('hidden');
+      if (event.target === el.dialog) {
+        el.dialog.classList.add('hidden');
+        dialogOnOk = null;
+      }
     });
 
     document.addEventListener('keydown', (event) => {
@@ -411,10 +444,12 @@ int main() {
     el.stdin = $('stdin');
     el.editBtn = $('editBtn');
     el.foldBtn = $('foldBtn');
+    el.clearRuns = $('clearRuns');
     el.dialog = $('dialog');
     el.dialogTitle = $('dialogTitle');
     el.dialogText = $('dialogText');
     el.dialogOk = $('dialogOk');
+    el.dialogCancel = $('dialogCancel');
 
     CppEditor.init();
     CppEditor.setValue(SAMPLES.basic);

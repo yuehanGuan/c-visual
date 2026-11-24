@@ -25,6 +25,7 @@
     </label>
     <button id="editBtn" class="ghost hidden">编辑代码</button>
     <button id="foldBtn" class="ghost">折叠：开</button>
+    <button id="clearRuns" class="ghost" title="删除 ~/.cppviz/runs 下的历史记录">清空历史</button>
     <button id="runBtn" class="primary">运行 ▶</button>
   </div>
 </header>
@@ -90,7 +91,10 @@
   <div class="dialog-box">
     <h3 id="dialogTitle">提示</h3>
     <p id="dialogText"></p>
-    <button id="dialogOk" class="primary">知道了</button>
+    <div class="dialog-actions">
+      <button id="dialogCancel" class="ghost hidden">取消</button>
+      <button id="dialogOk" class="primary">知道了</button>
+    </div>
   </div>
 </div>
 
