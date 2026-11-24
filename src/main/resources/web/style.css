@@ -463,7 +463,7 @@ button.ghost { background: transparent; }
 .mem .heap-title { font: 12px var(--mono); fill: var(--muted); }
 .mem .heap-block text { font: 11px var(--mono); fill: var(--muted); }
 .mem .seq-meta { font: 11px var(--mono); fill: #8b93a7; }
-.mem .mem-arrow { fill: none; stroke: #5ac8fa; stroke-width: 1.5; opacity: .85; }
-.mem .mem-arrow-label { font: 10px var(--mono); fill: #8b93a7; }
-.mem .ptr-arrow { stroke: #c792ea; }
-.mem .ptr-miss { font: 11px var(--mono); fill: #c792ea; }
+.mem .mem-arrow { fill: none; stroke: #7fd6ff; stroke-width: 2.4; opacity: .95; stroke-linecap: round; stroke-linejoin: round; }
+.mem .mem-arrow-label { font: 10px var(--mono); fill: #a9b3c9; paint-order: stroke; stroke: #0e1016; stroke-width: 2.5px; stroke-linejoin: round; }
+.mem .ptr-arrow { stroke: #d0a9ff; }
+.mem .ptr-miss { font: 11px var(--mono); fill: #d0a9ff; }

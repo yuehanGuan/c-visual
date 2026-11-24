@@ -42,6 +42,21 @@ int main() {
     return 0;
 }
 `,
+    swap: `#include <cstdio>
+
+void swap2(int *p, int *q) {
+    int t = *p;
+    *p = *q;
+    *q = t;
+}
+
+int main() {
+    int a = 7, b = 9;
+    swap2(&a, &b);
+    printf("%d %d\\n", a, b);
+    return 0;
+}
+`,
   };
 
   const state = {

@@ -431,7 +431,7 @@ const Memory = (() => {
     const W = width;
     const R = frameRight(W - RIGHT_MARGIN);
     const endX = R - 4;
-    const ctrlX = Math.min(W - 4, R + 14);
+    const ctrlX = Math.min(W - 8, R + 24);
     const clampX = (v) => Math.max(0, Math.min(width, Math.round(v)));
     const clampY = (v) => Math.max(0, Math.min(height, Math.round(v)));
     const seen = {};
@@ -528,10 +528,10 @@ const Memory = (() => {
     const head = `<text class="mem-title" x="16" y="20">栈</text>`;
     const defs =
       '<defs>' +
-      '<marker id="mem-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">' +
-      '<path d="M0,0 L8,4 L0,8 z" fill="#5ac8fa"/></marker>' +
-      '<marker id="mem-arrow-ptr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">' +
-      '<path d="M0,0 L8,4 L0,8 z" fill="#c792ea"/></marker>' +
+      '<marker id="mem-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="9" markerHeight="9" orient="auto">' +
+      '<path d="M0,0 L8,4 L0,8 z" fill="#7fd6ff"/></marker>' +
+      '<marker id="mem-arrow-ptr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="9" markerHeight="9" orient="auto">' +
+      '<path d="M0,0 L8,4 L0,8 z" fill="#d0a9ff"/></marker>' +
       '</defs>';
     const summary = renderDiffSummary(step, prevStep);
     container.innerHTML =

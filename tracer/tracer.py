@@ -487,12 +487,17 @@ def _decl_in_src(value):
 
 
 def _frame_key(frame, depth):
-    """Stable per-activation key: the frame pointer; depth as fallback."""
+    """Stable per-activation key: canonical frame address; depth fallback.
+
+    GetFP() cannot be used: a leaf function may reuse its caller's frame
+    record, so two activations can report the same FP and merge their guard
+    state.  GetCFA() is unique per activation and stable across steps.
+    """
     try:
-        fp = frame.GetFP() or frame.GetSP()
+        cfa = frame.GetCFA()
     except Exception:
-        fp = 0
-    return fp if fp else ("depth", depth)
+        cfa = 0
+    return cfa if cfa else ("depth", depth)
 
 
 def _frame_vars(frame, depth=0, heap=None):

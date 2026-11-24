@@ -4,8 +4,8 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.1（2026-11-24，T-1 完成）
-- 最后验证：`./smoke.sh` → **PASS**（2026-11-24 21:51，T-1 后复测）
+- 版本：v2.1.1（2026-11-24，T-1 + T-3.1 完成）
+- 最后验证：`./smoke.sh` → **PASS**（2026-11-24 22:01，T-3.1 后复测）
 
 ---
 
@@ -41,19 +41,19 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 ### 0.4 每轮收工必须回写
 1. 本文件 §1（当前状态）
 2. 本文件 §7 顶部加一条 ≤5 行日志
-3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K38 往后编）
+3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K39 往后编）
 
 ---
 
 ## 1. 当前状态
 
 - **能用了**：`./run.sh` 启动，浏览器自动打开，输入任意 C++ 代码 → 逐行回放 + 内存图
-- **T-1 已完成**：B1/B2 已修，见 §4；下一件是 T-3（需用户说"继续优化"）
+- **T-1 已完成**：B1/B2 已修，见 §4；**T-3.1 箭头增强 + swap 示例已完成**；下一件 T-3.2（`}` 行高亮）
 - **阻塞**：无
 - **已知 bug**：1 个（B3，只影响手工在 `/tmp` 下测试，不影响产品）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
-- **代码规模**：Java 823 行｜前端 2190 行｜Python（tracer）711 行
-- **累计 token**：约 **1.64M 净内容** / 约 4.6M 原始
+- **代码规模**：Java 823 行｜前端 2206 行｜Python（tracer）716 行
+- **累计 token**：约 **1.67M 净内容** / 约 4.7M 原始
 
 ---
 
@@ -83,7 +83,7 @@ src/main/resources/web/      index.html style.css app.js(播放器) memory.js(SV
                              editor.js(代码高亮) views.js(兜底) timeline.js(轨迹) calltree.js(调用树)
 tracer/tracer.py             LLDB 内嵌 Python，逐行断点 → JSONL
 docs/TRACE_SCHEMA.md         数据契约（引擎 ↔ UI）
-docs/PITFALLS.md             坑 K1–K38
+docs/PITFALLS.md             坑 K1–K39
 orders/                      派单文件 + README(模板)
 samples/                     basic vector recursion compile_error stl qs glob maponly
 logs/                        归档日志 + 截图
@@ -111,7 +111,7 @@ logs/                        归档日志 + 截图
 | 标量 / 一维数组 / 二维数组 | ✅ | 数组就地展开成带下标的格子 |
 | `vector` | ✅ | 栈上控制块 + 堆上缓冲 + 箭头 + `capacity` 虚线空位 |
 | `struct` / `class` | ✅ | `{ v = 3, next = → null }` |
-| 指针 / 链表 | ✅ | 括号形箭头连到目标行，`ptrDrawn:2 / ptrMiss:0` |
+| 指针 / 链表 | ✅ | 括号形箭头连到目标行（2.4px + 9px 箭头，跨帧可见），`ptrDrawn:2 / ptrMiss:0` |
 | 全局变量 | ✅ | `g_count @ 0x000` 独立地址段；库内部静态量已过滤 |
 | `map` | ✅ | `{ apple: 3, banana: 5 }`，**按 key 排序** |
 | `set` | ✅ | `{ 1, 2, 3 }`（插入顺序 3,1,2，显示自动有序） |
@@ -140,9 +140,9 @@ logs/                        归档日志 + 截图
 的根因是**守卫表按帧序号 depth 记账**，而递归压栈时所有旧帧的 depth 都会 +1：
 新帧继承父帧的"已见变量"集合 → 守卫被跳过，未构造的 `std::map` 被当已构造读
 （实测幽灵 `size: 1876945921` 的假元素），父帧反而误显示"声明中"。
-修法（`tracer/tracer.py`）：`_frame_key()` 用 `frame.GetFP()`（帧指针）作键；
+修法（`tracer/tracer.py`）：`_frame_key()` 用 `frame.GetCFA()`（canonical frame address）作键；
 `_dump_frames` 收尾删掉本步已不在栈上的键 → 返回后复用同一栈地址的新调用从空集开始。
-派单与验收：`orders/T1-b1-frame-guard.md`。
+派单与验收：`orders/T1-b1-frame-guard.md` → `orders/T1b-frame-key-cfa.md`（GetFP 在叶子函数里会撞车，已改 GetCFA）。
 
 ### B2 · opaque 节点 value 是空串（✅ 已修，真因是 stdout 编码）
 现象：守卫产出的 `"value": "（声明中，下一步展开）"` 到 trace 里变成 `""`。
@@ -166,15 +166,19 @@ LLDB 内嵌 Python 的 `sys.stdout` 于是变成 **US-ASCII + errors="ignore"**�
 ### T-1 修 B1 ✅ 已完成（2026-11-24）
 - 真根因不是"少个 global"：守卫表按帧序号 depth 记账，递归压栈时旧帧 depth 全部 +1，
   新帧继承父帧"已见集合"→ 未构造容器被当已构造读（幽灵 map `size: 1876945921`），父帧误显"声明中"
-- 修法：`_frame_key`（帧指针）+ `_dump_frames` 收尾清理已出栈的键
+- 修法：`_frame_key`（GetCFA）+ `_dump_frames` 收尾清理已出栈的键
 - 顺带确认 B2 同源已修（见 §4），T-2 不需要了
 - 验收：`./smoke.sh` PASS；递归+map 专项 18 步无幽灵 size；`tests/calltree_trace_test.js` PASS
 
 ### T-2 ~~若 B2 仍在，专项排查~~ ✅ 已取消
 B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4），无需包装器。
 
-### T-3 优化候选（按价值排序，用户说"继续优化"）
-1. **指针箭头视觉增强**：现在在 44px 右边距里偏细，加粗/加对比
+### T-3 优化候选（按价值排序）
+1. **指针箭头视觉增强** ✅ 已完成（2026-11-24，T-3.1）
+   - `stroke-width` 1.5→2.4、opacity .85→.95、marker 7→9px、青/紫提亮、标签加暗色描边
+   - 曲线外扩 `R+14`→`R+24`，44px 边距里不再像小钩子
+   - 新增内置示例「指针 swap」（`app.js` SAMPLES + 下拉项，8 步）：两条跨帧箭头，实测 `ptrDrawn=2 / ptrMiss=0`
+   - 验收：无头 Chrome 截图 + DOM 指标（stroke 2.4px / marker 9 / drawn 2）+ `smoke.sh` PASS
 2. **`}` 行高亮**：现在靠"作用域结束/循环迭代"标注缓解，可考虑映射到所属语句行
 3. **压栈动画**：帧入场/退场的过渡
 4. **`~/.cppviz/runs/` 清理策略**：现在保留 30 份，可加"清空"按钮
@@ -202,9 +206,15 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 
 ## 7. 进度日志（倒序，每条 ≤5 行）
 
+### 2026-11-24 · T-3.1 指针箭头增强 + swap 示例（v2.1.1）
+- 箭头 1.5→2.4px、marker 7→9、青/紫提亮、标签描边、曲线外扩 14→24px
+- 新增「指针 swap」示例：跨帧两条箭头，`ptrDrawn=2 / ptrMiss=0`，8 步无垃圾值
+- **T-1 修正**：守卫键 `GetFP()`→`GetCFA()`（叶子函数会复用调用者 frame record，FP 撞车）
+- 验收：`smoke.sh` PASS（22:01）；calltree 测试 PASS；无头 Chrome 截图比对
+
 ### 2026-11-24 · T-1：修 B1，定位 B2 真因（v2.1）
 - B1 真根因是"守卫按 depth 记账"，不是缺 global：递归下新帧继承父帧已见集 → 幽灵 map
-- 修法：帧指针作键 + 每步清理已出栈帧；B2 真因：`LC_ALL=C` 下内嵌 Python 静默丢弃中文
+- 修法：GetCFA 作键 + 每步清理已出栈帧；B2 真因：`LC_ALL=C` 下内嵌 Python 静默丢弃中文
 - 验收：`smoke.sh` PASS（2026-11-24 21:51）；递归/map 专项 18 步全对；calltree 测试 PASS
 - 下一步：T-3（等用户说"继续优化"）
 
@@ -224,6 +234,7 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 | 图形化 + 任意代码 + STL | ≈0.75M | ≈2.2M |
 | 折叠 + diff + 轨迹 + 调用树 | ≈0.30M | ≈0.5M |
 | T-1 修 B1 / 定位 B2 | ≈0.04M | ≈0.12M |
-| **累计** | **≈1.64M** | **≈4.6M** |
+| T-3.1 箭头 + 示例 | ≈0.03M | ≈0.09M |
+| **累计** | **≈1.67M** | **≈4.7M** |
 
 **省 token 的关键**：本文件（≈3k token）替代聊天历史（几十 k）；派单前只读 §1/§4/§5 与相关坑。
