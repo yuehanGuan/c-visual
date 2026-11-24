@@ -45,3 +45,5 @@
 | K34 | **被调试的二进制不能放在 `~/Documents` / `~/Desktop` / `~/Downloads` 下**：debugserver 是独立进程，macOS TCC 静默拒绝它访问受保护目录，于是 `lldb -b ... run` **挂起且无任何报错**（连 `Process launched` 都不打印）。同一二进制拷到 `/tmp` 或 `~/.cppviz/` 即刻正常 | 症状极具迷惑性：attach 模式正常、立即退出的程序正常、只有 launch 持续运行才挂。排查用对照法：`cp 二进制 /tmp` 再 `lldb run` |
 | K35 | **调用栈帧的身份只能由函数名决定**：把渲染用的 label（含运行时变量值）也算进最长公共前缀匹配，局部变量从 `opaque`(值空) 变成 `scalar`(有值) 时 label 就变了，同一个函数会被误判成不同帧 → 平白多出一个 root | label 只用于显示；匹配只比 `fn` |
 | K36 | 源码里的裸 NUL 字节（`'\x00'` 写成真字节）会让 `file` 报 "data"、`grep` 报 "Binary file matches"，改动时容易整段被跳过 | 写成 `'\u0000'` 转义序列 |
+| K37 | **声明步守卫的键必须是"帧身份"，不能是帧序号 depth**：递归压栈时所有旧帧 depth 全部 +1，按 depth 记账会让新帧继承父帧的"已见变量"集合 → 守卫被跳过，未构造的 `std::map` 被当已构造读（实测幽灵 `size: 1876945921` 的假元素），父帧反而误显"声明中"。用 `frame.GetFP()` 作键，并在每步收尾删掉已不在栈上的键 | B1 的真根因；补 `global` 只治了表层 |
+| K38 | **LLDB 内嵌 Python 的 stdout 在 `LC_ALL=C` 下是 US-ASCII + `errors="ignore"`**：`json.dumps(..., ensure_ascii=False)` 里的中文被**静默丢弃**（不是 `?`，是直接消失），trace 里就剩 `"value": ""`。Java 的 `LldbEngine` 恰好设了 `LC_ALL=C`。修法：`sys.stdout.buffer.write(line.encode("utf-8"))`，兜底 `ensure_ascii=True` | B2 的真根因；手工跑 lldb 没带 `LC_ALL=C` 时**不复现**，极易误判成守卫/前端问题 |

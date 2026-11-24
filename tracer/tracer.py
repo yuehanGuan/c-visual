@@ -38,32 +38,43 @@ _ended = False
 _src = ""
 _src_name = ""
 _max_frames = 64
-# guard: names seen in the previous step, per frame depth
+# guard: names seen in the previous step, per live frame activation
 _prev_vars = {}
-_prev_fn = {}
-_cur_depth = 0
 
 _STD_NS_RE = re.compile(r"std::__\d+::|std::")
 
 
-def _drop_allocator(text):
-    """Remove ``allocator<...>`` template args (nested-safe) plus their comma."""
+_DROP_TEMPLATES = ("allocator", "less", "greater", "hash", "equal_to", "char_traits")
+
+
+def _drop_templates(text, names=_DROP_TEMPLATES):
+    """Remove the given template args (nested-safe) plus their comma."""
     out = []
     i = 0
     while True:
-        idx = text.find("allocator<", i)
-        if idx < 0:
+        best = -1
+        best_len = 0
+        for nm in names:
+            idx = text.find(nm + "<", i)
+            while idx >= 0:
+                if idx == 0 or not (text[idx - 1].isalnum() or text[idx - 1] == "_"):
+                    break
+                idx = text.find(nm + "<", idx + 1)
+            if idx >= 0 and (best < 0 or idx < best):
+                best = idx
+                best_len = len(nm)
+        if best < 0:
             out.append(text[i:])
             break
         depth = 1
-        j = idx + len("allocator<")
+        j = best + best_len + 1
         while j < len(text) and depth:
             if text[j] == "<":
                 depth += 1
             elif text[j] == ">":
                 depth -= 1
             j += 1
-        head = text[i:idx].rstrip()
+        head = text[i:best].rstrip()
         if head.endswith(","):
             head = head[:-1]
         out.append(head)
@@ -71,18 +82,53 @@ def _drop_allocator(text):
     return "".join(out)
 
 
+def _drop_allocator(text):
+    """Remove ``allocator<...>`` template args (nested-safe) plus their comma."""
+    return _drop_templates(text, ("allocator",))
+
+
+def _keep_first_arg(name):
+    """``queue<int, deque<int>>`` -> ``queue<int>`` (also for ``stack``)."""
+    for pre in ("queue<", "stack<"):
+        if not name.startswith(pre):
+            continue
+        body = name[len(pre):]
+        depth = 0
+        for idx, ch in enumerate(body):
+            if ch == "<":
+                depth += 1
+            elif ch == ">":
+                if depth == 0:
+                    return pre + body[:idx]
+                depth -= 1
+            elif ch == "," and depth == 0:
+                return pre + body[:idx] + ">"
+        return pre + body
+    return name
+
+
 def _short_type(name):
     """std::__1::vector<int, std::__1::allocator<int>> -> vector<int>"""
     if not name:
         return ""
     out = _STD_NS_RE.sub("", name)
-    out = _drop_allocator(out)
+    out = _drop_templates(out)
+    out = _keep_first_arg(out)
     return out.replace(" >", ">").strip()
 
 
 def _emit(obj):
-    sys.stdout.write("VIZ " + json.dumps(obj, ensure_ascii=False, default=str) + "\n")
-    sys.stdout.flush()
+    # LLDB's embedded Python runs with sys.stdout.encoding == "US-ASCII" and
+    # errors == "ignore", so a plain write() silently DROPS every non-ASCII
+    # character (all Chinese text).  Write UTF-8 bytes to the raw buffer.
+    line = "VIZ " + json.dumps(obj, ensure_ascii=False, default=str) + "\n"
+    try:
+        sys.stdout.buffer.write(line.encode("utf-8"))
+        sys.stdout.buffer.flush()
+    except Exception:
+        # Fall back to an ASCII-safe escape so the record is never lost.
+        sys.stdout.write("VIZ " + json.dumps(obj, ensure_ascii=True, default=str) + "\n")
+        sys.stdout.flush()
 
 
 def _text(value):
@@ -440,13 +486,23 @@ def _decl_in_src(value):
         return True
 
 
-def _frame_vars(frame, heap=None):
+def _frame_key(frame, depth):
+    """Stable per-activation key: the frame pointer; depth as fallback."""
+    try:
+        fp = frame.GetFP() or frame.GetSP()
+    except Exception:
+        fp = 0
+    return fp if fp else ("depth", depth)
+
+
+def _frame_vars(frame, depth=0, heap=None):
     nodes = []
     try:
         values = frame.GetVariables(True, True, True, True)
     except Exception:
         return nodes
-    prev = _prev_vars.get(_cur_depth, set())
+    key = _frame_key(frame, depth)
+    prev = _prev_vars.get(key, set())
     # Arguments are always initialised at function entry, so the
     # declaration-step guard must not apply to them (a recursive call would
     # otherwise report its own parameter as "being declared").
@@ -485,7 +541,7 @@ def _frame_vars(frame, heap=None):
             })
             continue
         nodes.append(_node(value, heap))
-    _prev_vars[_cur_depth] = seen
+    _prev_vars[key] = seen
     return nodes
 
 
@@ -499,6 +555,7 @@ def _is_user_frame(frame):
 def _dump_frames(thread, heap=None):
     """Frames from the user's own file only; runtime frames are noise."""
     frames = []
+    alive = set()
     try:
         total = min(thread.GetNumFrames(), _max_frames)
     except Exception:
@@ -510,15 +567,17 @@ def _dump_frames(thread, heap=None):
                 continue
             name = frame.GetDisplayFunctionName() or frame.GetFunctionName() or "?"
             depth = len(frames)
-            _cur_depth = depth
-            if _prev_fn.get(depth) != name:
-                _prev_vars[depth] = set()
-            _prev_fn[depth] = name
+            alive.add(_frame_key(frame, depth))
             frames.append(
-                {"fn": name, "depth": depth, "vars": _frame_vars(frame, heap)}
+                {"fn": name, "depth": depth, "vars": _frame_vars(frame, depth, heap)}
             )
         except Exception:
             break
+    # Forget activations that have returned: a later call reusing the same
+    # stack slot must start with a clean "declaration step" guard.
+    for key in list(_prev_vars):
+        if key not in alive:
+            del _prev_vars[key]
     return frames
 
 

@@ -114,7 +114,7 @@ const Memory = (() => {
       case 'opaque': {
         const t = node.type || '未知类型';
         const v = node.value === undefined || node.value === null ? '' : String(node.value);
-        return v ? `${t}（不支持的类型） ${v}` : `${t}（不支持的类型）`;
+        return v ? v : `${t}（不支持的类型）`;
       }
       case 'ptr': {
         if (node.target === '0x0') return '→ null';
