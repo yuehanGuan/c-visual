@@ -372,6 +372,7 @@ button.ghost { background: transparent; }
   border-top: 1px solid var(--line);
 }
 .controls #scrub { flex: 1; accent-color: var(--accent); }
+.controls button { white-space: nowrap; }
 .counter { font: 12.5px var(--mono); color: var(--muted); min-width: 78px; text-align: right; }
 .status { font-size: 12px; color: var(--muted); min-width: 90px; }
 

@@ -75,14 +75,15 @@
 </main>
 
 <footer class="controls">
-  <button id="prevBtn" title="上一步 (←)">◀</button>
-  <button id="nextBtn" title="下一步 (→)">▶</button>
+  <button id="prevBtn" title="上一步 (←)">◀ 上一步</button>
+  <button id="nextBtn" title="下一步 (→)">下一步 ▶</button>
   <button id="playBtn" class="primary" title="播放/暂停 (空格)">播放</button>
   <input id="scrub" type="range" min="0" max="0" value="0" title="拖动跳转">
   <span id="counter" class="counter">0 / 0</span>
   <label class="field">
     速度
     <select id="speed">
+      <option value="1800">0.25×</option>
       <option value="900">0.5×</option>
       <option value="450" selected>1×</option>
       <option value="220">2×</option>
