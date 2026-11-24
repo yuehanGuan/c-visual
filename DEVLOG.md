@@ -4,8 +4,8 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.1.1（2026-11-24，T-1 + T-3.1 完成）
-- 最后验证：`./smoke.sh` → **PASS**（2026-11-24 22:01，T-3.1 后复测）
+- 版本：v2.1.2（2026-11-24，T-1 + T-3.1 + T-3.2 完成）
+- 最后验证：`./smoke.sh` → **PASS**（2026-11-24 22:05，T-3.2 后复测）
 
 ---
 
@@ -41,19 +41,19 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 ### 0.4 每轮收工必须回写
 1. 本文件 §1（当前状态）
 2. 本文件 §7 顶部加一条 ≤5 行日志
-3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K39 往后编）
+3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K41 往后编）
 
 ---
 
 ## 1. 当前状态
 
 - **能用了**：`./run.sh` 启动，浏览器自动打开，输入任意 C++ 代码 → 逐行回放 + 内存图
-- **T-1 已完成**：B1/B2 已修，见 §4；**T-3.1 箭头增强 + swap 示例已完成**；下一件 T-3.2（`}` 行高亮）
+- **T-1 已完成**：B1/B2 已修，见 §4；**T-3.1 箭头 + 示例、T-3.2 `}` 归属提示已完成**；下一件 T-3.3（压栈动画）
 - **阻塞**：无
 - **已知 bug**：1 个（B3，只影响手工在 `/tmp` 下测试，不影响产品）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
-- **代码规模**：Java 823 行｜前端 2206 行｜Python（tracer）716 行
-- **累计 token**：约 **1.67M 净内容** / 约 4.7M 原始
+- **代码规模**：Java 823 行｜前端 2295 行（含 html/css）｜Python（tracer）716 行
+- **累计 token**：约 **1.70M 净内容** / 约 4.8M 原始
 
 ---
 
@@ -83,7 +83,7 @@ src/main/resources/web/      index.html style.css app.js(播放器) memory.js(SV
                              editor.js(代码高亮) views.js(兜底) timeline.js(轨迹) calltree.js(调用树)
 tracer/tracer.py             LLDB 内嵌 Python，逐行断点 → JSONL
 docs/TRACE_SCHEMA.md         数据契约（引擎 ↔ UI）
-docs/PITFALLS.md             坑 K1–K39
+docs/PITFALLS.md             坑 K1–K41
 orders/                      派单文件 + README(模板)
 samples/                     basic vector recursion compile_error stl qs glob maponly
 logs/                        归档日志 + 截图
@@ -179,7 +179,11 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
    - 曲线外扩 `R+14`→`R+24`，44px 边距里不再像小钩子
    - 新增内置示例「指针 swap」（`app.js` SAMPLES + 下拉项，8 步）：两条跨帧箭头，实测 `ptrDrawn=2 / ptrMiss=0`
    - 验收：无头 Chrome 截图 + DOM 指标（stroke 2.4px / marker 9 / drawn 2）+ `smoke.sh` PASS
-2. **`}` 行高亮**：现在靠"作用域结束/循环迭代"标注缓解，可考虑映射到所属语句行
+2. **`}` 行高亮** ✅ 已完成（2026-11-24，T-3.2）
+   - `editor.js` 新增 `describeBraces()`：大括号栈 + 构造识别（for/while/do/if/else/switch/struct/class/namespace/函数）
+   - 播放时显示 `← for 循环（第 6 行）` 这类归属提示；只对"整行只有 `}`/`};`"生效
+   - 扫描前剥掉字符串/字符字面量与 `//`、`/* */` 注释，`printf("}")` 不会打乱栈
+   - 新增 `tests/brace_hint_test.js`（10 组用例）并接入 `smoke.sh`；无头浏览器实测第 8 行提示
 3. **压栈动画**：帧入场/退场的过渡
 4. **`~/.cppviz/runs/` 清理策略**：现在保留 30 份，可加"清空"按钮
 5. **stdin 多组测试数据**（M3 遗留）
@@ -205,6 +209,12 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 ---
 
 ## 7. 进度日志（倒序，每条 ≤5 行）
+
+### 2026-11-24 · T-3.2 `}` 归属提示（v2.1.2）
+- `editor.js` 加大括号栈 + 构造识别；提示变成 `← for 循环（第 6 行）`
+- 剥字符串/注释再数括号（`printf("}")`、`/* } */` 不再干扰）；单行块不提示
+- 新增 `tests/brace_hint_test.js` 并接入 smoke；`smoke.sh` PASS（22:05）
+- 坑：前端资源由 `build.sh` 拷进 `out/classes`，改了 src 不重建会看到旧页面（K41）
 
 ### 2026-11-24 · T-3.1 指针箭头增强 + swap 示例（v2.1.1）
 - 箭头 1.5→2.4px、marker 7→9、青/紫提亮、标签描边、曲线外扩 14→24px
@@ -235,6 +245,7 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 | 折叠 + diff + 轨迹 + 调用树 | ≈0.30M | ≈0.5M |
 | T-1 修 B1 / 定位 B2 | ≈0.04M | ≈0.12M |
 | T-3.1 箭头 + 示例 | ≈0.03M | ≈0.09M |
-| **累计** | **≈1.67M** | **≈4.7M** |
+| T-3.2 `}` 归属提示 | ≈0.03M | ≈0.09M |
+| **累计** | **≈1.70M** | **≈4.8M** |
 
 **省 token 的关键**：本文件（≈3k token）替代聊天历史（几十 k）；派单前只读 §1/§4/§5 与相关坑。

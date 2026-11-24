@@ -49,6 +49,13 @@ node tests/calltree_test.js > out/calltree_test.log 2>&1 || {
 }
 pass "call tree logic ok"
 
+echo "== T3.2 brace hints (no lldb) =="
+node tests/brace_hint_test.js > out/brace_hint_test.log 2>&1 || {
+  cat out/brace_hint_test.log >&2
+  fail "brace hint test failed"
+}
+pass "brace hints map to the owning line"
+
 echo "== T0.4 lldb tracer =="
 # The debugged binary must NOT live under a TCC-protected directory
 # (~/Documents, ~/Desktop, ~/Downloads).  debugserver is a separate process

@@ -65,16 +65,104 @@ const CppEditor = (() => {
     els.gutter.scrollTop = els.source.scrollTop;
   }
 
+  /* Strip // comments and string/char literals so braces inside them do not
+   * count; `state.inBlock` carries an open block comment across lines. */
+  function codeOnly(line, state) {
+    let out = '';
+    let i = 0;
+    while (i < line.length) {
+      if (state.inBlock) {
+        const end = line.indexOf('*/', i);
+        if (end < 0) return out;
+        i = end + 2;
+        state.inBlock = false;
+        continue;
+      }
+      if (line.startsWith('//', i)) break;
+      if (line.startsWith('/*', i)) {
+        state.inBlock = true;
+        i += 2;
+        continue;
+      }
+      const ch = line[i];
+      if (ch === '"' || ch === "'") {
+        i += 1;
+        while (i < line.length) {
+          if (line[i] === '\\') { i += 2; continue; }
+          if (line[i] === ch) { i += 1; break; }
+          i += 1;
+        }
+        out += ' ';
+        continue;
+      }
+      out += ch;
+      i += 1;
+    }
+    return out;
+  }
+
+  /* Which construct owns the block opened at this brace? */
+  function blockOwner(prefix, previous) {
+    let text = (prefix || '').replace(/^[}\s]+/, '').trim();
+    if (!text) text = (previous || '').trim();
+    let m = text.match(/^(else\s+)?if\b/);
+    if (m) return { label: m[1] ? 'else if 分支' : 'if 分支' };
+    if (/^else\b/.test(text)) return { label: 'else 分支' };
+    if (/^do\b/.test(text)) return { label: 'do-while 循环' };
+    m = text.match(/^(for|while)\b/);
+    if (m) return { label: m[1] + ' 循环' };
+    if (/^switch\b/.test(text)) return { label: 'switch' };
+    m = text.match(/^(struct|class)\s+([A-Za-z_]\w*)/);
+    if (m) return { label: m[1] + ' ' + m[2] };
+    if (/^namespace\b/.test(text)) return { label: '命名空间' };
+    m = text.match(/([A-Za-z_]\w*)\s*\([^()]*\)\s*(?:const\s*)?$/);
+    if (m) return { label: '函数 ' + m[1] };
+    return { label: '作用域' };
+  }
+
+  /* Map each bare closing-brace line to the line that opened its block:
+   *   { 4: '← for 循环（第 2 行）', 5: '← 函数 main（第 1 行）' } */
+  function describeBraces(lines) {
+    const hints = {};
+    const stack = [];
+    const state = { inBlock: false };
+    let previous = '';
+    let previousNo = 0;
+    for (let i = 0; i < lines.length; i += 1) {
+      const n = i + 1;
+      const code = codeOnly(lines[i], state);
+      const trimmed = code.trim();
+      const bareClose = /^[}]+;?$/.test(trimmed);
+      for (let j = 0; j < code.length; j += 1) {
+        if (code[j] === '{') {
+          const prefix = code.slice(0, j);
+          // A `{` on its own line belongs to the signature above it.
+          const ownLine = prefix.replace(/^[}\s]+/, '').trim() ? n : (previousNo || n);
+          stack.push({ line: ownLine, label: blockOwner(prefix, previous).label });
+        } else if (code[j] === '}') {
+          const owner = stack.pop();
+          if (owner && bareClose) hints[n] = `← ${owner.label}（第 ${owner.line} 行）`;
+        }
+      }
+      if (trimmed) {
+        previous = code;
+        previousNo = n;
+      }
+    }
+    return hints;
+  }
+
   function renderPlayView(text) {
     const lines = text.split('\n');
+    const hints = describeBraces(lines);
     els.codeView.innerHTML = lines.map((line, i) => {
       const n = i + 1;
       const trimmed = line.trim();
-      // A bare brace is a real executed line (loop increment / scope exit) but
-      // reads as mysterious, so say what it means instead of hiding it.
-      const structural = trimmed.length > 0 && /^[{}]+$/.test(trimmed);
+      // A bare closing brace is a real executed line (loop increment / scope
+      // exit); name the block it closes instead of leaving it mysterious.
+      const structural = /^[}]+;?$/.test(trimmed);
       const hint = structural
-        ? '<span class="brace-hint">作用域结束 / 循环迭代</span>'
+        ? `<span class="brace-hint">${hints[n] || '作用域结束 / 循环迭代'}</span>`
         : '';
       return `<div class="line${errorLines.has(n) ? ' errline' : ''}" data-line="${n}">` +
         `<span class="ln">${n}</span><span class="src">${highlightLine(line) || ' '}${hint}</span></div>`;
@@ -131,6 +219,7 @@ const CppEditor = (() => {
 
   return {
     init,
+    describeBraces,
     setMode,
     highlight,
     setErrorLines,
