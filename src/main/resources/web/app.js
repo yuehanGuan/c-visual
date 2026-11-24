@@ -267,7 +267,7 @@ int main() {
     } else if (result.outcome === 'crash') {
       showBanner(`程序异常终止（退出码 ${result.exitCode}），例如数组越界或空指针访问。`, true);
     } else if (result.truncated) {
-      showBanner('程序执行超过步数上限，记录已截断。可以调大步数上限再看。', true);
+      showBanner('程序执行超过步数上限，记录已截断。已定位到最后 200 步，可按 10× 回放。', true);
     }
 
     el.programOutput.textContent = result.programOutput || '';
@@ -276,7 +276,14 @@ int main() {
     el.status.textContent = result.outcome === 'ok' ? '就绪' : '';
     CppEditor.setMode('play');
     el.editBtn.classList.remove('hidden');
-    goTo(0);
+    /* A truncated run means the step budget ran out: land on the tail where
+     * the repeating pattern is visible, and replay at 10x (45ms per step). */
+    if (result.truncated && state.steps.length > 200) {
+      el.speed.value = '45';
+      goTo(state.steps.length - 200);
+    } else {
+      goTo(0);
+    }
   }
 
   async function loadTrace(traceId) {
