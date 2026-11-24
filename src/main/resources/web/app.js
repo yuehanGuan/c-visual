@@ -183,6 +183,18 @@ int main() {
 
   let dialogOnOk = null;
 
+  /* Deep recursion often looks like a timeout or a crash: the last recorded
+   * step has many identical frames.  Name it instead of blaming a dead loop. */
+  function deepRecursionNote() {
+    const last = state.steps[state.steps.length - 1];
+    const frames = (last && last.frames) || [];
+    if (frames.length < 16) return '';
+    const fn = frames[0].fn;
+    const same = frames.filter((f) => f.fn === fn).length;
+    if (same < frames.length * 0.8) return '';
+    return ` 栈上至少有 ${frames.length} 层 ${fn}，看起来是递归太深 / 栈溢出。`;
+  }
+
   function showDialog(title, text, onOk) {
     el.dialogTitle.textContent = title;
     el.dialogText.textContent = text;
@@ -263,9 +275,11 @@ int main() {
     await loadTrace(result.traceId);
 
     if (result.outcome === 'runtime_timeout') {
-      showBanner('运行超时：程序在限定时间内没有结束，通常意味着死循环。已保留最后的执行记录。', true);
+      showBanner('运行超时：程序在限定时间内没有结束（通常意味着死循环）。已保留最后的执行记录。'
+        + deepRecursionNote(), true);
     } else if (result.outcome === 'crash') {
-      showBanner(`程序异常终止（退出码 ${result.exitCode}），例如数组越界或空指针访问。`, true);
+      showBanner(`程序异常终止（退出码 ${result.exitCode}），例如数组越界或空指针访问。`
+        + deepRecursionNote(), true);
     } else if (result.truncated) {
       showBanner('程序执行超过步数上限，记录已截断。已定位到最后 200 步，可按 10× 回放。', true);
     }

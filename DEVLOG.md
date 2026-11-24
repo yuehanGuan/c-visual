@@ -4,8 +4,8 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.2.2（2026-11-24，T-1 + T-3 完成 + trace 体积治理 + 单步按钮）
-- 最后验证：`./smoke.sh` → **PASS**（2026-11-24 23:12，T-3.8 后复测）
+- 版本：v2.2.3（2026-11-24，T-1 + T-3 完成 + T-4.2 深递归提示）
+- 最后验证：`./smoke.sh` → **PASS**（2026-11-24 23:12，T-3.8 后复测；T-4.2 只改前端 banner）
 
 ---
 
@@ -41,7 +41,7 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 ### 0.4 每轮收工必须回写
 1. 本文件 §1（当前状态）
 2. 本文件 §7 顶部加一条 ≤5 行日志
-3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K45 往后编）
+3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K46 往后编）
 
 ---
 
@@ -53,7 +53,7 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 - **已知 bug**：1 个（B3，只影响手工在 `/tmp` 下测试，不影响产品）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
 - **代码规模**：Java 848 行｜前端 2455 行（含 html/css）｜Python（tracer）731 行
-- **累计 token**：约 **1.85M 净内容** / 约 5.35M 原始
+- **累计 token**：约 **1.87M 净内容** / 约 5.4M 原始
 
 ---
 
@@ -83,7 +83,7 @@ src/main/resources/web/      index.html style.css app.js(播放器) memory.js(SV
                              editor.js(代码高亮) views.js(兜底) timeline.js(轨迹) calltree.js(调用树)
 tracer/tracer.py             LLDB 内嵌 Python，逐行断点 → JSONL
 docs/TRACE_SCHEMA.md         数据契约（引擎 ↔ UI）
-docs/PITFALLS.md             坑 K1–K45
+docs/PITFALLS.md             坑 K1–K46
 orders/                      派单文件 + README(模板)
 samples/                     basic vector recursion compile_error stl qs glob maponly
 logs/                        归档日志 + 截图
@@ -180,6 +180,19 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 - 画布：单元格上限按可用宽度算（640px 容器约 11 个），不再画出屏幕
 - 验收：`smoke.sh` PASS（23:04）；无头浏览器 `.cell` 11 个、SVG 宽 595
 
+### T-4 健壮性（M3 遗留）
+1. **程序输出与时间轴对齐** ❌ 阻塞（2026-11-24 实测）
+   - tracer 每步读 `target.output-path` 文件大小：**5 步全程 0 字节**，程序退出才写入 10 字节
+   - 原因：stdout 重定向到文件是**全缓冲**，`printf` 在缓冲区里直到 fflush/exit
+   - 可行但高风险的方向：在 lldb 里对 inferior 调 `setvbuf(stdout, 0, _IONBF, 0)`，或走 pty；
+     两条都会碰"在停止的进程里调函数"，暂不做
+2. **深递归/栈溢出提示** ✅ 已完成（2026-11-24，T-4.2）
+   - 最后一帧栈 ≥16 层且 ≥80% 同名函数时，在超时/崩溃 banner 后补
+     " 栈上至少有 64 层 deep(int)，看起来是递归太深 / 栈溢出。"
+   - 实测：`char buf[1<<16]` 无限递归 → `runtime_timeout` + 64 层 deep(int) → 提示正确；
+     空指针崩溃（帧数少）不触发，仍是通用文案
+3. **B3 `realpath`** ⬜ 待做（建断点时同时试 abspath 与 realpath）
+
 ### T-3.8 单步按钮可读 + 0.25× ✅ 已完成（2026-11-24，用户反馈）
 - `◀` / `▶` 两个裸三角和「播放」太像 → 改成「◀ 上一步 / 下一步 ▶」，`white-space: nowrap`
 - 速度新增 0.25×（1800ms/步），配合 220ms 的压栈动画能看清
@@ -234,6 +247,11 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 ---
 
 ## 7. 进度日志（倒序，每条 ≤5 行）
+
+### 2026-11-24 · T-4.2 深递归/栈溢出提示（v2.2.3）
+- 末帧 ≥16 层且 ≥80% 同名 → 超时/崩溃 banner 补"递归太深 / 栈溢出"
+- 实测：大局部数组无限递归 64 层 deep(int) 命中；空指针崩溃不误报
+- T-4.1（输出对齐）实测被 stdio 全缓冲阻塞，已记 K46
 
 ### 2026-11-24 · T-3.8 单步按钮 + 0.25×（v2.2.2）
 - 上一步/下一步 直接写文字，不再和播放混淆；速度加 0.25×（1800ms/步）
@@ -307,6 +325,7 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 | T-3.6 TLE 尾部 | ≈0.02M | ≈0.06M |
 | T-3.7 trace 体积 | ≈0.03M | ≈0.09M |
 | T-3.8 单步按钮 | ≈0.01M | ≈0.03M |
-| **累计** | **≈1.85M** | **≈5.35M** |
+| T-4.2 深递归提示 | ≈0.02M | ≈0.06M |
+| **累计** | **≈1.87M** | **≈5.4M** |
 
 **省 token 的关键**：本文件（≈3k token）替代聊天历史（几十 k）；派单前只读 §1/§4/§5 与相关坑。
