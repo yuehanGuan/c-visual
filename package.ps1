@@ -7,7 +7,7 @@ $JAVAC = Join-Path $JAVA_HOME 'bin\javac.exe'
 $JAR = Join-Path $JAVA_HOME 'bin\jar.exe'
 $JPACKAGE = Join-Path $JAVA_HOME 'bin\jpackage.exe'
 $VERSION = if ($env:VERSION) { $env:VERSION } else { '1.0.0' }
-$APP = 'c可视'
+$APP = 'c-visual'
 $JAR_NAME = 'c-visual.jar'
 
 if (-not (Test-Path $JPACKAGE)) { throw "jpackage not found: $JPACKAGE (JDK 21 required)" }

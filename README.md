@@ -26,7 +26,7 @@
 
 - **macOS**：下载 `c-visual-1.0.0.dmg`，打开后把 `c可视` 拖进「应用程序」。
   第一次打开若被 Gatekeeper 拦住：右键 → 打开。
-- **Windows**：下载 `c-visual-windows.zip`，解压后运行 `c可视\c可视.exe`。
+- **Windows**：下载 `c-visual-windows.zip`，解压后运行 `c-visual\c-visual.exe`。
   **Windows 版尚未在真机验证**（依赖 LLDB 的 Python 脚本接口），遇到问题请开 issue。
 
 ## 环境要求
