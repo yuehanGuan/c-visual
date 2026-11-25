@@ -4,8 +4,8 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.2.6（2026-11-24，动画平面化 + vector 箭头修正）
-- 最后验证：`./smoke.sh` → **PASS**（2026-11-25 00:01，T-5.2 后复测）
+- 版本：v2.3.0（2026-11-25，砍掉轨迹，改堆区平面视图）
+- 最后验证：`./smoke.sh` → **PASS**（2026-11-25 08:57，T-6 后复测）
 
 ---
 
@@ -41,7 +41,7 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 ### 0.4 每轮收工必须回写
 1. 本文件 §1（当前状态）
 2. 本文件 §7 顶部加一条 ≤5 行日志
-3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K47 往后编）
+3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K48 往后编）
 
 ---
 
@@ -52,8 +52,8 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 - **阻塞**：无
 - **已知 bug**：0 个（B1/B2/B3 全部修复）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
-- **代码规模**：Java 848 行｜前端 2484 行（含 html/css）｜Python（tracer）731 行
-- **累计 token**：约 **1.92M 净内容** / 约 5.55M 原始
+- **代码规模**：Java 848 行｜前端 2293 行（含 html/css）｜Python（tracer）731 行
+- **累计 token**：约 **1.95M 净内容** / 约 5.6M 原始
 
 ---
 
@@ -80,10 +80,10 @@ cd cppviz
 ```
 src/main/java/dev/cppviz/    Main(路由) Json CompileService TraceEngine LldbEngine RunService
 src/main/resources/web/      index.html style.css app.js(播放器) memory.js(SVG内存图)
-                             editor.js(代码高亮) views.js(兜底) timeline.js(轨迹) calltree.js(调用树)
+                             editor.js(代码高亮) views.js(兜底) calltree.js(调用树)
 tracer/tracer.py             LLDB 内嵌 Python，逐行断点 → JSONL
 docs/TRACE_SCHEMA.md         数据契约（引擎 ↔ UI）
-docs/PITFALLS.md             坑 K1–K47
+docs/PITFALLS.md             坑 K1–K48
 orders/                      派单文件 + README(模板)
 samples/                     basic vector recursion compile_error stl qs glob maponly
 logs/                        归档日志 + 截图
@@ -121,7 +121,7 @@ logs/                        归档日志 + 截图
 | 压栈/返回过渡 | ✅ | 新帧淡入（−6px）+ 左侧 accent 条；返回描边淡回 +「返回」标签 |
 | 循环折叠 | ✅ | **周期检测**（不是"连续同行"）：40 次循环 84 步 → 1 段「×40」 |
 | 变化摘要（diff） | ✅ | 顶部 chip `s: 1 → 3` |
-| 变量轨迹图 | ✅ | sparkline：`s` 加速上升，`i` 直线 |
+| 堆区平面视图 | ✅ | 每个缓冲一行：`v int[5] · cap 8 · 0x940` + 格子（替换原 sparkline 轨迹） |
 | 递归调用树 | ✅ | `main → fib(int) n=4 → n=3 → n=2 → n=1×2` |
 | 程序输出 | ✅ | 只在最后一步显示（防剧透） |
 | 编译错误 | ✅ | 行号标红 + 中文提示 |
@@ -181,6 +181,14 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
   `size` 仍是真实长度，超限节点带 `truncated: true` → 同用例 trace **5.0 MB → 597 KB**
 - 画布：单元格上限按可用宽度算（640px 容器约 11 个），不再画出屏幕
 - 验收：`smoke.sh` PASS（23:04）；无头浏览器 `.cell` 11 个、SVG 宽 595
+
+### T-6 布局调整（2026-11-25，用户反馈"轨迹没用，砍掉换堆数据平铺"）
+1. **砍掉轨迹面板** ✅ 已完成
+   - `timeline.js` 删除（171 行），`index.html` 移除脚本与 `#timeline`
+   - 原区域改为「堆（数据区）」面板：每个堆缓冲一行
+     `v  int[5] · cap 8 · 0x940` + 整行格子（复用 `renderCells`，含 capacity 虚位与变化高亮）
+   - 变量名靠 `dataAddr` 反查，代替原来的长箭头；栈画布只画帧与指针箭头
+   - 验收：递归示例显示"（当前没有堆数据）"；vector 第 4/12 步分别 1 行 1 格 / 1 行 5 格
 
 ### T-5.2 vector 堆块箭头压字 ✅ 已完成（用户反馈"vector 压栈那块还是有点问题"）
 - 箭头尖原本落在"最后一格右边缘"，9px 箭头盖住格子文字（`10`→`1`、`20`→`2`）
@@ -266,6 +274,11 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 ---
 
 ## 7. 进度日志（倒序，每条 ≤5 行）
+
+### 2026-11-25 · T-6 砍轨迹、改堆区平面视图（v2.3.0）
+- 删除 timeline.js（171 行）与 `.timeline` 样式；原位置换成「堆（数据区）」面板
+- 每个堆缓冲一行：变量名 + 类型/数量/容量/地址 + 整行格子；栈画布不再画堆块与长箭头
+- 验收：vector 第 4/12 步 1 行 1 格 / 1 行 5 格；递归示例显示"没有堆数据"；smoke PASS（08:57）
 
 ### 2026-11-25 · T-5.2 vector 堆块箭头（v2.2.6）
 - 箭头尖不再盖住最后一格（10/20 恢复完整）；起点从地址文字上移开 12px
@@ -362,6 +375,7 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 | T-4.3 修 B3 | ≈0.01M | ≈0.03M |
 | T-5.1 动画平面化 | ≈0.02M | ≈0.06M |
 | T-5.2 vector 箭头 | ≈0.02M | ≈0.06M |
-| **累计** | **≈1.92M** | **≈5.55M** |
+| T-6 堆区平面视图 | ≈0.03M | ≈0.09M |
+| **累计** | **≈1.95M** | **≈5.6M** |
 
 **省 token 的关键**：本文件（≈3k token）替代聊天历史（几十 k）；派单前只读 §1/§4/§5 与相关坑。

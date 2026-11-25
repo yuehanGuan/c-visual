@@ -348,18 +348,7 @@ button.ghost { background: transparent; }
   white-space: pre-wrap;
 }
 
-/* ---------- timeline ---------- */
-.timeline { flex: 0 0 auto; padding: 6px 12px 10px; border-top: 1px solid var(--line); max-height: 160px; overflow: auto; }
-.timeline .tl-title { font: 12px var(--mono); color: var(--muted); margin-bottom: 4px; }
-.timeline .tl-row { display: flex; align-items: center; gap: 8px; height: 24px; }
-.timeline .tl-name { width: 60px; font: 11.5px var(--mono); color: #8b93a7; text-align: right; }
-.timeline .tl-plot { flex: 1; }
-.timeline .empty { margin-top: 10px; font-size: 12px; }
-.timeline .tl-line { fill: none; stroke: #5ac8fa; stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round; }
-.timeline .tl-dot { fill: #5ac8fa; }
-.timeline .tl-tick { stroke: #3a4152; stroke-width: 1.2; }
-.timeline .tl-tick.changed { stroke: #f5b942; stroke-width: 1.6; }
-.timeline .tl-tick.current { stroke: #c3e88d; }
+
 
 /* ---------- controls ---------- */
 .controls {
@@ -492,3 +481,20 @@ button.ghost { background: transparent; }
 @media (prefers-reduced-motion: reduce) {
   .mem .frame.frame-in, .mem .frame.frame-return .frame-box, .mem .frame-accent { animation: none; }
 }
+
+/* ---------- flat heap panel ---------- */
+.heap-panel { flex: 0 0 auto; border-top: 1px solid var(--line); max-height: 200px; overflow: auto; }
+.heap-head { font: 12px var(--mono); color: var(--muted); padding: 6px 12px 2px; }
+.heap-body { padding: 0 12px 8px; }
+.heap-body .empty { margin: 4px 0 2px; font-size: 12px; color: var(--muted); }
+.heap-row { padding: 4px 0 6px; border-bottom: 1px dashed rgba(255, 255, 255, .05); }
+.heap-row:last-child { border-bottom: 0; }
+.heap-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.heap-var { font: 12px var(--mono); color: var(--accent); white-space: nowrap; }
+.heap-meta { font: 11.5px var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.heap-cells { display: block; margin-top: 3px; }
+.heap-cells text { font: 11px var(--mono); fill: var(--text); }
+.heap-cells text.cell-idx { font-size: 9.5px; fill: #565e72; }
+.heap-cells rect { fill: var(--panel-2); stroke: var(--line); }
+.heap-cells rect.ghost { fill: none; stroke-dasharray: 3 3; stroke: #2c3243; }
+.heap-cells rect.changed { stroke: #f5b942; fill: var(--changed); }

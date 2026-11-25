@@ -27,9 +27,6 @@ const Memory = (() => {
   const CELL_GAP = 3;
   const MAX_GHOST = 24;
   const CELL_TEXT_MAX = 6;
-  const BLOCK_H = 22 + 24 + 16;
-  const BLOCK_GAP = 10;
-  const HEAP_GAP = 16;
   const STACK_ARRAY_EXTRA = 52;
   /* Right gutter reserved for pointer arrows, so arrows never overlap text. */
   const RIGHT_MARGIN = 44;
@@ -299,7 +296,6 @@ const Memory = (() => {
 
     const stackCount = vars.filter((n) => n && n.kind === 'seq' && n.dataAddr && !heapAddrs[n.dataAddr]).length;
     const height = FRAME_TOP + ROW_H * vars.length + FRAME_PAD + STACK_ARRAY_EXTRA * stackCount;
-    const anchors = [];
     const addrPoints = {};
     const ptrLinks = [];
     const parts = [];
@@ -328,9 +324,6 @@ const Memory = (() => {
       }
       parts.push(renderSlot(node, prevVars[node.name], frame, rowY, cardW));
       if (node && node.kind === 'seq' && node.dataAddr) {
-        /* Start on the card border: cardW - 26 is where the address text ends,
-         * so the arrow used to draw straight across "0xc00". */
-        anchors.push({ addr: node.dataAddr, x: cardW - 14, y: rowY + ROW_H / 2, from: true });
         if (!heapAddrs[node.dataAddr]) {
           const prev = prevVars[node.name];
           const cells = renderCells(node.items, node.capacity,
@@ -342,7 +335,7 @@ const Memory = (() => {
       rowY += ROW_H;
     });
     parts.push('</g>');
-    return { svg: parts.join(''), height: height, anchors: anchors, addrPoints: addrPoints, ptrLinks: ptrLinks };
+    return { svg: parts.join(''), height: height, addrPoints: addrPoints, ptrLinks: ptrLinks };
   }
 
   /* A row of memory cells: one rect per item, ghost slots for spare capacity. */
@@ -382,58 +375,6 @@ const Memory = (() => {
     parts.push('</g>');
     const count = list.length + ghostCount;
     return { svg: parts.join(''), width: count ? count * (CELL_W + CELL_GAP) - CELL_GAP : 0 };
-  }
-
-  /* Heap blocks drawn under the stack frames. */
-  function renderHeap(heap, prevHeap, y, width) {
-    const blocks = Array.isArray(heap) ? heap : [];
-    if (!blocks.length) return { svg: '', height: 0 };
-    const prevByAddr = {};
-    (Array.isArray(prevHeap) ? prevHeap : []).forEach((b) => { if (b && b.addr) prevByAddr[b.addr] = b; });
-    const anchors = [];
-    const parts = [];
-    parts.push(`<text class="heap-title" x="16" y="${y}">堆</text>`);
-    parts.push(`<text class="heap-title" x="${width - 16}" y="${y}" text-anchor="end">${escapeHtml(addrShort(blocks[0].addr))}</text>`);
-    let by = y + 22;
-    blocks.forEach((b) => {
-      const prev = b.addr ? prevByAddr[b.addr] : null;
-      const cells = renderCells(b.items, b.capacity,
-        prev ? prev.items : null, (width - 40) / (CELL_W + CELL_GAP));
-      const count = b.count !== undefined ? b.count : (b.items || []).length;
-      const capTxt = b.capacity === undefined ? '' : `  cap ${b.capacity}`;
-      const head = `${addrShort(b.addr)}  ${b.type || '?'}[${count}]${capTxt}`;
-      parts.push(`<g class="heap-block" data-addr="${escapeHtml(b.addr || '')}">`);
-      parts.push(`<text class="heap-head" x="16" y="${by + 12}">${escapeHtml(head)}</text>`);
-      parts.push(`<g transform="translate(16, ${by + 20})">${cells.svg}</g>`);
-      parts.push('</g>');
-      /* Stop the arrow just right of the last cell: the arrowhead used to
-       * cover the final value (a 40px cell showing "20" looked like "2"). */
-      const tipX = Math.min(width - 12, 16 + cells.width + 14);
-      anchors.push({ addr: b.addr, x: tipX, y: by + 20 + 26, from: false });
-      by += BLOCK_H + BLOCK_GAP;
-    });
-    return { svg: parts.join(''), height: by - BLOCK_GAP - y, anchors: anchors };
-  }
-
-  /* Arrows from stack variables to the heap blocks they point at. */
-  function renderArrows(anchors) {
-    const frames = anchors.filter((a) => a.from !== false && a.addr !== undefined);
-    const blocks = anchors.filter((a) => a.from === false);
-    const parts = [];
-    frames.forEach((a) => {
-      const b = blocks.find((x) => x.addr === a.addr);
-      if (!b) return;
-      const ax = a.x, ay = a.y, bx = b.x, by = b.y;
-      const mx = (ax + bx) / 2;
-      const lx = mx, ly = (ay + by) / 2 - 6;
-      /* Leave the row toward the right gutter and approach the block from its
-       * right side, even when the block sits to the left of the row. */
-      const cx1 = ax + 16, cx2 = bx + 16;
-      const d = ax === bx ? `M ${ax},${ay} L ${bx},${by}` : `M ${ax},${ay} C ${cx1},${ay} ${cx2},${by} ${bx},${by}`;
-      parts.push(`<path class="mem-arrow" marker-end="url(#mem-arrow)" d="${d}"/>`);
-      parts.push(`<text class="mem-arrow-label" x="${lx}" y="${ly}" text-anchor="middle">${escapeHtml(addrShort(a.addr))}</text>`);
-    });
-    return parts.join('');
   }
 
   /* Arrows from pointer variables to the variable they point at.
@@ -501,6 +442,44 @@ const Memory = (() => {
     };
   }
 
+  /* Flat heap view: one row per allocated buffer, labelled with the variable
+   * whose dataAddr owns it.  Replaces the in-canvas heap blocks + arrows. */
+  function renderHeapPanel(container, step, prevStep) {
+    if (!container) return;
+    const blocks = (step && step.heap) || [];
+    if (!blocks.length) {
+      container.innerHTML = '<p class="empty">（当前没有堆数据）</p>';
+      return;
+    }
+    const nameByAddr = {};
+    ((step && step.frames) || []).forEach((frame) => {
+      ((frame && frame.vars) || []).forEach((node) => {
+        if (node && node.dataAddr) nameByAddr[node.dataAddr] = node.name;
+      });
+    });
+    const prevByAddr = {};
+    ((prevStep && prevStep.heap) || []).forEach((b) => { if (b && b.addr) prevByAddr[b.addr] = b; });
+    const room = Math.max(4, Math.floor(((container.clientWidth || 520) - 24) / (CELL_W + CELL_GAP)));
+    const rows = blocks.map((b) => {
+      const prev = b.addr ? prevByAddr[b.addr] : null;
+      const cells = renderCells(b.items, b.capacity, prev ? prev.items : null, room);
+      const count = b.count !== undefined ? b.count : (b.items || []).length;
+      const cap = b.capacity === undefined ? '' : ' · cap ' + b.capacity;
+      const name = nameByAddr[b.addr] || '?';
+      return '<div class="heap-row" data-addr="' + escapeHtml(b.addr || '') + '">' +
+        '<div class="heap-line">' +
+        '<span class="heap-var">' + escapeHtml(name) + '</span>' +
+        '<span class="heap-meta">' +
+        escapeHtml((b.type || '?') + '[' + count + ']' + cap + ' · ' + addrShort(b.addr)) +
+        '</span>' +
+        '</div>' +
+        '<svg class="heap-cells" width="' + cells.width + '" height="44" viewBox="0 -4 ' + cells.width + ' 44">' +
+        cells.svg + '</svg>' +
+        '</div>';
+    });
+    container.innerHTML = rows.join('');
+  }
+
   function render(container, step, prevStep) {
     if (!container) return;
     const frames = (step && step.frames) || [];
@@ -521,14 +500,12 @@ const Memory = (() => {
     ((step && step.heap) || []).forEach((b) => { if (b && b.addr) heapAddrs[b.addr] = true; });
 
     const body = [];
-    const anchors = [];
     const addrPoints = {};
     const ptrLinks = [];
     let y = 34;
     frames.forEach((frame) => {
       const rendered = renderFrame(frame, prevByKey[frameKey(frame)], y, width, heapAddrs, anim);
       body.push(rendered.svg);
-      rendered.anchors.forEach((a) => anchors.push(a));
       Object.keys(rendered.addrPoints || {}).forEach((addr) => {
         if (!addrPoints[addr]) addrPoints[addr] = rendered.addrPoints[addr];
       });
@@ -536,15 +513,9 @@ const Memory = (() => {
       y += rendered.height + FRAME_GAP;
     });
     if (frames.length) y -= FRAME_GAP;
-    const heap = renderHeap(step && step.heap, prevStep && prevStep.heap, y + HEAP_GAP, width);
-    if (heap.height > 0) {
-      body.push(heap.svg);
-      heap.anchors.forEach((a) => anchors.push(a));
-      y += HEAP_GAP + heap.height;
-    }
+    /* The heap now lives in the flat panel below the stack (renderHeapPanel);
+     * the canvas only draws frames and pointer arrows. */
     const height = y + 8;
-
-    body.push(renderArrows(anchors));
     const ptr = renderPtrArrows(ptrLinks, addrPoints, width, height);
     body.push(ptr.svg);
 
@@ -566,5 +537,5 @@ const Memory = (() => {
       defs + head + body.join('') + '</svg>';
   }
 
-  return { render, escapeHtml, addrShort, textOf };
+  return { render, renderHeapPanel, escapeHtml, addrShort, textOf };
 })();

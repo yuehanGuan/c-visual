@@ -62,7 +62,10 @@
     <div id="frames" class="frames">
       <p class="empty">点右上角「运行 ▶」开始</p>
     </div>
-    <div id="timeline" class="timeline"></div>
+    <div class="heap-panel">
+      <div class="heap-head">堆（数据区）</div>
+      <div id="heap" class="heap-body"><p class="empty">（当前没有堆数据）</p></div>
+    </div>
     <details class="ct-panel" open>
       <summary>调用树</summary>
       <div id="calltree"></div>
@@ -108,7 +111,6 @@
 <script src="/editor.js"></script>
 <script src="/views.js"></script>
 <script src="/memory.js"></script>
-<script src="/timeline.js"></script>
 <script src="/calltree.js"></script>
 <script src="/app.js"></script>
 </body>
