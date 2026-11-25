@@ -412,6 +412,7 @@ button.ghost { background: transparent; }
   fill: var(--muted);
   font-size: 13px;
 }
+.mem .mem-note { font: 11px var(--mono); fill: var(--muted); }
 .mem .frame-box {
   fill: #131722;
   stroke: var(--line);
@@ -509,3 +510,6 @@ button.ghost { background: transparent; }
 .zoom-label { font: 11.5px var(--mono); color: var(--muted); min-width: 36px; text-align: center; }
 
 .heap-cells rect.changed { stroke: #f5b942; fill: var(--changed); }
+
+.hint.ok { color: var(--ok); }
+.hint.bad { color: var(--err); }

@@ -53,6 +53,10 @@
       </div>
       <textarea id="stdin" spellcheck="false" placeholder="程序从标准输入读取的数据，例如：&#10;5&#10;1 2 3 4 5"></textarea>
     </details>
+    <details class="io">
+      <summary>期望输出（可选）</summary>
+      <textarea id="expect" spellcheck="false" placeholder="粘贴标准答案，运行后自动对比"></textarea>
+    </details>
   </section>
 
   <section class="pane vars-pane">
@@ -80,6 +84,7 @@
     </details>
     <div class="pane-head sub">
       <span>程序输出</span>
+      <span id="expectStatus" class="hint"></span>
     </div>
     <pre id="programOutput" class="output"></pre>
   </section>

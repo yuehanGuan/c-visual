@@ -547,7 +547,10 @@ const Memory = (() => {
     const ptr = renderPtrArrows(ptrLinks, addrPoints, width, height, heapAddrs);
     body.push(ptr.svg);
 
-    const head = `<text class="mem-title" x="16" y="20">栈</text>`;
+    const head = `<text class="mem-title" x="16" y="20">栈</text>` +
+      (step && step.framesTruncated
+        ? `<text class="mem-note" x="${width - 16}" y="20" text-anchor="end">仅显示最近 ${frames.length} 层</text>`
+        : '');
     const defs =
       '<defs>' +
       '<marker id="mem-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="9" markerHeight="9" orient="auto">' +

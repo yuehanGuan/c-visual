@@ -643,13 +643,17 @@ def _dump_frames(thread, heap=None):
     """Frames from the user's own file only; runtime frames are noise."""
     frames = []
     alive = set()
+    saw_end = False
+    last_index = -1
     # Do NOT call thread.GetNumFrames(): it unwinds the *whole* stack on every
     # step, which turns a 2000-deep recursion into ~25 ms/step.  Walk at most
     # _max_frames frames and stop at the first invalid one.
     for index in range(_max_frames):
+        last_index = index
         try:
             frame = thread.GetFrameAtIndex(index)
             if not frame or not frame.IsValid():
+                saw_end = True
                 break
             if not _is_user_frame(frame):
                 continue
@@ -666,7 +670,8 @@ def _dump_frames(thread, heap=None):
     for key in list(_prev_vars):
         if key not in alive:
             del _prev_vars[key]
-    return frames
+    truncated = (not saw_end) and last_index == _max_frames - 1
+    return frames, truncated
 
 
 def _addr_key(bp):
@@ -704,8 +709,9 @@ def _on_hit(frame, bp_loc, *rest):
         line, col = 0, 0
 
     heap = []
+    frames_truncated = False
     try:
-        frames = _dump_frames(frame.GetThread(), heap)
+        frames, frames_truncated = _dump_frames(frame.GetThread(), heap)
     except Exception:
         frames = []
     heap_truncated = False
@@ -723,6 +729,7 @@ def _on_hit(frame, bp_loc, *rest):
             "frames": frames,
             "heapTruncated": heap_truncated,
             "heap": heap,
+            "framesTruncated": frames_truncated,
         }
     )
     return False

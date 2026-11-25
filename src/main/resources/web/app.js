@@ -4,6 +4,8 @@
   /* Samples that need stdin ship a preset so the first run is meaningful. */
   const SAMPLE_STDIN = { sum: '3\n1 2 3' };
 
+  const SAMPLE_EXPECT = { sum: '6' };
+
   const SAMPLES = {
     basic: `#include <cstdio>
 
@@ -272,6 +274,52 @@ int main() {
     }
   }
 
+  const EXPECT_KEY = 'cppviz.expect';
+  let expectTimer = 0;
+
+  function stashExpect() {
+    try {
+      localStorage.setItem(EXPECT_KEY, el.expect.value || '');
+    } catch (ignored) {
+      // private mode: compare still works this session
+    }
+  }
+
+  /* Compare the run's stdout with the optional expected answer. */
+  function checkExpect() {
+    if (!el.expect || !el.expectStatus) return;
+    const want = (el.expect.value || '').trim();
+    if (!want) {
+      el.expectStatus.textContent = '';
+      el.expectStatus.className = 'hint';
+      return;
+    }
+    const got = (state.programOutput || '').trim();
+    if (got === want) {
+      el.expectStatus.textContent = '✓ 输出一致';
+      el.expectStatus.className = 'hint ok';
+      return;
+    }
+    const gotLines = got === '' ? [] : got.split('\n');
+    const wantLines = want.split('\n');
+    let i = 0;
+    while (i < gotLines.length && i < wantLines.length && gotLines[i] === wantLines[i]) i += 1;
+    const tail = gotLines.length < wantLines.length
+      ? `（少 ${wantLines.length - gotLines.length} 行）`
+      : (gotLines.length > wantLines.length ? `（多 ${gotLines.length - wantLines.length} 行）` : '');
+    el.expectStatus.textContent = `✗ 第 ${i + 1} 行不一致${tail}`;
+    el.expectStatus.className = 'hint bad';
+  }
+
+  function initExpect() {
+    try {
+      const saved = localStorage.getItem(EXPECT_KEY);
+      if (saved) el.expect.value = saved;
+    } catch (ignored) {
+      // default empty
+    }
+  }
+
   function diagText(diags) {
     return (diags || []).map((d) => {
       const where = d.line > 0 ? `第 ${d.line} 行${d.col > 0 ? ` 第 ${d.col} 列` : ''}：` : '';
@@ -335,14 +383,19 @@ int main() {
       showBanner('运行超时：程序在限定时间内没有结束（通常意味着死循环）。已保留最后的执行记录。'
         + deepRecursionNote(), true);
     } else if (result.outcome === 'crash') {
-      showBanner(`程序异常终止（退出码 ${result.exitCode}），例如数组越界或空指针访问。`
-        + deepRecursionNote(), true);
+      const crashLine = (state.steps[state.steps.length - 1] || {}).line;
+      if (crashLine) CppEditor.setErrorLines([crashLine]);
+      showBanner(`程序异常终止（退出码 ${result.exitCode}）`
+        + (crashLine ? `：崩溃发生在第 ${crashLine} 行附近（已标红）`
+                     : '，例如数组越界或空指针访问')
+        + '。' + deepRecursionNote(), true);
     } else if (result.truncated) {
       showBanner('程序执行超过步数上限，记录已截断。已定位到最后 200 步，可按 10× 回放。', true);
     }
 
     el.programOutput.textContent = result.programOutput || '';
     state.programOutput = result.programOutput || '';
+    checkExpect();
     el.engineTag.textContent = state.meta && state.meta.engine ? state.meta.engine : '';
     el.status.textContent = result.outcome === 'ok' ? '就绪' : '';
     CppEditor.setMode('play');
@@ -494,6 +547,9 @@ int main() {
       stop();
       CppEditor.setMode('edit');
       CppEditor.setValue(SAMPLES[el.samples.value] || '');
+      el.expect.value = SAMPLE_EXPECT[el.samples.value] || '';
+      stashExpect();
+      el.expectStatus.textContent = '';
       const preset = SAMPLE_STDIN[el.samples.value];
       if (preset !== undefined) {
         el.stdin.value = preset;
@@ -532,6 +588,10 @@ int main() {
     el.stdin.addEventListener('input', () => {
       if (stdinTimer) clearTimeout(stdinTimer);
       stdinTimer = setTimeout(stashStdin, 250);
+    });
+    el.expect.addEventListener('input', () => {
+      if (expectTimer) clearTimeout(expectTimer);
+      expectTimer = setTimeout(() => { stashExpect(); checkExpect(); }, 300);
     });
     el.stdinAdd.addEventListener('click', () => {
       stashStdin();
@@ -602,6 +662,8 @@ int main() {
     el.samples = $('samples');
     el.maxSteps = $('maxSteps');
     el.stdin = $('stdin');
+    el.expect = $('expect');
+    el.expectStatus = $('expectStatus');
     el.stdinSet = $('stdinSet');
     el.stdinAdd = $('stdinAdd');
     el.stdinDel = $('stdinDel');
@@ -614,6 +676,7 @@ int main() {
     el.dialogOk = $('dialogOk');
     el.dialogCancel = $('dialogCancel');
     initStdinSets();
+    initExpect();
     initZoom();
 
     CppEditor.init();
@@ -626,6 +689,8 @@ int main() {
     if (sample && SAMPLES[sample]) {
       CppEditor.setValue(SAMPLES[sample]);
       el.samples.value = sample;
+      el.expect.value = SAMPLE_EXPECT[sample] || '';
+      stashExpect();
       const preset = SAMPLE_STDIN[sample];
       if (preset !== undefined) {
         el.stdin.value = preset;
