@@ -4,8 +4,8 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.6.3（2026-11-25，发布 v1.0.0 + 使用手册）
-- 最后验证：`./smoke.sh` → **PASS**（2026-11-25 10:58，P1 完成后复测）
+- 版本：v2.7.0（2026-11-25，Windows 真机可用 + 发布 v1.1.0）
+- 最后验证：`./smoke.sh` → **PASS**（2026-11-25 10:58，P1 完成后复测）；Windows `tools/verify-win.ps1` → **ALL PASS**（2026-11-25 17:00）
 
 ---
 
@@ -350,6 +350,16 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 ---
 
 ## 7. 进度日志（倒序，每条 ≤5 行）
+
+### 2026-11-25 · P-6 Windows 真机修复（v2.7.0）
+- 从源码复现：`LldbEngine` 的 `settings set target.output-path "…"` 在带空格路径上被 lldb 拆碎
+  （`error: 'test\...' does not exist`，0 条 VIZ）；去掉引号即正常，而 `command script import` 反过来必须带引号。
+- Windows lldb 把 CRT 全局（`$xdatasym`/`GS_ContextRecord`/`module_names`）当帧变量（5 步 217KB）；
+  改为局部/全局分取 + 全局按"名字是否出现在用户源码"过滤 → 351 B/步，用户全局 `g` 仍保留。
+- 崩溃识别补 7 个 SEH 码；新增 `Toolchain`（`CPVIZ_*` → PATH → 常见目录，注入 lldb/python310 目录）；
+  首条记录前看门狗 5s→20s（Defender 首扫 lldb.exe 曾误判 crash）。
+- 验收：`tools/verify-win.ps1` ALL PASS；`package.ps1` + JDK 21.0.13 打出的 zip 真机跑通。
+- 坑：`settings set` 与 `command script import` 的引号要求相反；Windows 上所有全局的 decl 都无效。
 
 ### 2026-11-25 · T-12 P1 完成（v2.6.0）
 - 历史列表（meta.txt + /api/runs + 点开回放）、代码持久化、导出 trace

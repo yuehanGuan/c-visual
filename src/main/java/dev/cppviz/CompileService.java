@@ -30,8 +30,13 @@ public final class CompileService {
         boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
         Path exe = work.resolve(windows ? "a.exe" : "a.out");
 
+        String compiler = Toolchain.compiler();
+        if (compiler == null) {
+            return new Result(false, null,
+                    List.of(new Diag(0, 0, "error", Toolchain.compilerHint())), false, "");
+        }
         List<String> cmd = List.of(
-                "clang++", "-std=c++17", "-g", "-O0", "-fno-omit-frame-pointer",
+                compiler, "-std=c++17", "-g", "-O0", "-fno-omit-frame-pointer",
                 "-Wall", "-Wextra",
                 src.toString(), "-o", exe.toString());
 
@@ -40,8 +45,16 @@ public final class CompileService {
                 .redirectErrorStream(true);
         // Diagnostics are parsed with a regex, so keep them in a stable locale.
         builder.environment().put("LC_ALL", "C");
+        Toolchain.applyEnv(builder.environment());
 
-        Process process = builder.start();
+        Process process;
+        try {
+            process = builder.start();
+        } catch (IOException failure) {
+            return new Result(false, null,
+                    List.of(new Diag(0, 0, "error", Toolchain.compilerHint())), false,
+                    String.valueOf(failure.getMessage()));
+        }
         AtomicBoolean killed = new AtomicBoolean(false);
         Thread watchdog = new Thread(() -> {
             try {

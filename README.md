@@ -29,7 +29,7 @@
 - **macOS**：从[最新 Release](https://github.com/yuehanGuan/c-visual/releases/latest) 下载 `c-visual-<版本>.dmg`，打开后把 `c可视` 拖进「应用程序」。
   第一次打开若被 Gatekeeper 拦住：右键 → 打开。
 - **Windows**：从[最新 Release](https://github.com/yuehanGuan/c-visual/releases/latest) 下载 `c-visual-windows.zip`，解压后运行 `c-visual\c-visual.exe`。
-  **Windows 版尚未在真机验证**（依赖 LLDB 的 Python 脚本接口），遇到问题请开 issue。
+  已在 Windows 11 + LLVM 23.1.6 真机验证（编译 / 逐行追踪 / STL 容器 / 崩溃定位全部通过）。
 
 ## 环境要求
 
@@ -38,10 +38,14 @@
 | 平台 | 需要 |
 |---|---|
 | macOS | 系统自带 `clang++` 和 `lldb`（装 Xcode Command Line Tools 即可：`xcode-select --install`） |
-| Windows | 安装 [LLVM](https://github.com/llvm/llvm-project/releases)（含 `clang++.exe`、`lldb.exe`），并把 `bin` 加进 PATH |
+| Windows | 装 [LLVM](https://github.com/llvm/llvm-project/releases)（含 `clang++.exe`、`lldb.exe`）+ **Python 3.10 x64**（官方 Windows 版 lldb 要加载 `python310.dll`） |
 
-启动时 c可视 会**自动检测** `clang++` / `lldb`；缺少时界面顶部会出现「**帮我安装**」按钮：
+启动时 c可视 会**自动检测** `clang++` / `lldb` / lldb 的 Python 支持；缺少时界面顶部会出现「**帮我安装**」按钮：
 macOS 直接调起 Xcode 命令行工具安装，Windows 打开 LLVM 下载页，装好后自动检测并消失。
+
+Windows 上不用手动配 PATH：c可视 会自动在 `C:\Program Files\LLVM\bin`、`%LOCALAPPDATA%\Programs\LLVM\bin`
+等常见位置找 `clang++` / `lldb`，也会自动把 `python310.dll` 所在目录补进调试器环境；
+想指定自己的工具链就设 `CPVIZ_COMPILER` / `CPVIZ_LLDB`（绝对路径）。
 
 macOS 上被调试的二进制不能放在 `~/Documents`、`~/Desktop`、`~/Downloads`
 （TCC 会让 debugserver 静默挂起）；程序会把它们放到 `~/.cppviz/runs/`，不受影响。

@@ -31,6 +31,9 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class LldbEngine implements TraceEngine {
 
     private static final long IDLE_TIMEOUT_MS = 5_000;
+    // Cold start: Defender scans lldb.exe on first launch, which used to
+    // exceed IDLE_TIMEOUT_MS and turn a healthy start into a false crash.
+    private static final long FIRST_RECORD_TIMEOUT_MS = 20_000;
     private static final int TAIL_LINES = 40;
 
     private final Path tracerScript;
@@ -49,10 +52,15 @@ public final class LldbEngine implements TraceEngine {
                         int maxSteps, int timeoutSeconds) throws Exception {
         Path programOut = traceOut.resolveSibling(traceOut.getFileName() + ".program.txt");
 
+        String lldb = Toolchain.lldb();
+        if (lldb == null) {
+            return new Result(0, "error", false, -1, Toolchain.lldbHint());
+        }
+
         List<String> cmd = List.of(
-                "lldb", "-b",
-                "-o", "settings set target.output-path \"" + programOut + "\"",
-                "-o", "command script import \"" + tracerScript + "\"",
+                lldb, "-b",
+                "-o", "settings set target.output-path " + Toolchain.commandPath(programOut),
+                "-o", "command script import \"" + Toolchain.commandPath(tracerScript) + "\"",
                 "-o", "script import tracer; tracer.bootstrap()",
                 "-o", "run",
                 "-o", "script import tracer; tracer.finish()",
@@ -62,6 +70,7 @@ public final class LldbEngine implements TraceEngine {
                 .directory(exe.getParent().toFile())
                 .redirectErrorStream(true);
         builder.environment().put("LC_ALL", "C");
+        Toolchain.applyEnv(builder.environment());
         builder.environment().put("VIZ_SRC", source.toAbsolutePath().toString());
         builder.environment().put("VIZ_MAX_STEPS", String.valueOf(maxSteps));
         builder.environment().put("VIZ_OUT", programOut.toString());
@@ -71,6 +80,9 @@ public final class LldbEngine implements TraceEngine {
 
         Process process = builder.start();
         AtomicLong lastActivity = new AtomicLong(System.currentTimeMillis());
+        // Until the first VIZ record lands we are still paying lldb's cold start,
+        // so the idle budget starts out much wider than the steady-state one.
+        AtomicBoolean sawRecord = new AtomicBoolean(false);
         AtomicBoolean idleKilled = new AtomicBoolean(false);
         long hardDeadline = System.currentTimeMillis() + timeoutSeconds * 1000L;
 
@@ -82,7 +94,8 @@ public final class LldbEngine implements TraceEngine {
                     return;
                 }
                 long now = System.currentTimeMillis();
-                boolean idle = now - lastActivity.get() > IDLE_TIMEOUT_MS;
+                long budget = sawRecord.get() ? IDLE_TIMEOUT_MS : FIRST_RECORD_TIMEOUT_MS;
+                boolean idle = now - lastActivity.get() > budget;
                 if (idle || now > hardDeadline) {
                     idleKilled.set(true);
                     killTree(process);
@@ -125,6 +138,7 @@ public final class LldbEngine implements TraceEngine {
                 }
 
                 String payload = line.substring(4);
+                sawRecord.set(true);
                 out.write(payload);
                 out.write('\n');
 
@@ -165,7 +179,14 @@ public final class LldbEngine implements TraceEngine {
                 || text.contains("SIGSEGV")
                 || text.contains("SIGBUS")
                 || text.contains("SIGFPE")
-                || text.contains("SIGABRT");
+                || text.contains("SIGABRT")
+                || text.contains("0xc0000005")   // 越界 / 空指针
+                || text.contains("0xc000001d")   // 非法指令
+                || text.contains("0xc0000094")   // 整数除零
+                || text.contains("0xc0000096")   // 特权指令
+                || text.contains("0xc00000fd")   // 栈溢出
+                || text.contains("0xc0000374")   // 堆破坏
+                || text.contains("0xc0000409");  // 栈缓冲溢出
     }
 
     private static void killTree(Process process) {

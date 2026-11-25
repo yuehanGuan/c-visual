@@ -477,16 +477,37 @@ def _node(value, heap=None):
         return node
 
 
-def _decl_in_src(value):
+_src_names = None
+
+
+def _name_in_src(value):
+    """名字是否出现在用户源码里（Windows 上所有全局的 decl 都无效，只能靠名字区分）。"""
+    global _src_names
+    if _src_names is None:
+        try:
+            with open(_src, "r", encoding="utf-8", errors="replace") as handle:
+                text = handle.read()
+        except OSError:
+            text = ""
+        _src_names = set(re.findall(r"[A-Za-z_$][A-Za-z0-9_$]*", text))
+    raw = value.GetName() or ""
+    return (raw[2:] if raw.startswith("::") else raw) in _src_names
+
+
+def _decl_in_src(value, strict=False):
     """True unless the value is declared in a header/other file, not the user source.
 
     LLDB exposes the declaration site as SBDeclaration.GetFileSpec(); older
     builds expose a plain GetFile() string.  Handle both.
+
+    ``strict`` marks values we cannot vouch for (globals on Windows: there the
+    declaration is invalid for *every* global, including the user's own), so an
+    undecidable case must count as "not user code" instead of "user code".
     """
     try:
         decl = value.GetDeclaration()
         if decl is None or not decl.IsValid():
-            return True
+            return not strict
         decl_file = ""
         try:
             spec = decl.GetFileSpec()
@@ -502,10 +523,10 @@ def _decl_in_src(value):
             except Exception:
                 decl_file = ""
         if not decl_file:
-            return True
+            return not strict
         return os.path.basename(decl_file) == os.path.basename(_src)
     except Exception:
-        return True
+        return not strict
 
 
 def _frame_key(frame, depth):
@@ -525,11 +546,15 @@ def _frame_key(frame, depth):
 def _frame_vars(frame, depth=0, heap=None):
     nodes = []
     try:
-        # Globals/statics are the same memory in every frame; only the innermost
-        # frame carries them, otherwise 8 queues x 8 frames multiplies the trace.
-        values = frame.GetVariables(True, True, depth == 0, True)
+        # 参数/局部来自用户源码；全局/静态只有最内层帧取一次，且只认本文件里的。
+        values = list(frame.GetVariables(True, True, False, True))
+        globals_only = []
+        if depth == 0:
+            globals_only = list(frame.GetVariables(False, False, True, True))
+            values.extend(globals_only)
     except Exception:
         return nodes
+    strict_ids = {id(value) for value in globals_only}
     key = _frame_key(frame, depth)
     prev = _prev_vars.get(key, set())
     # Arguments are always initialised at function entry, so the
@@ -556,7 +581,14 @@ def _frame_vars(frame, depth=0, heap=None):
         # the declaration-step guard, so they never reach _prev_vars.
         if "std::" in name or "::" in name or name.startswith("_"):
             continue
-        if not _decl_in_src(value):
+        if "$" in name:            # lldb 合成变量，如 $xdatasym
+            continue
+        if id(value) in strict_ids:
+            # 全局/静态：Windows 上 decl 一律无效（连用户自己的 g 也是），
+            # 不能靠声明文件区分，只能看名字在不在用户源码里。
+            if not _name_in_src(value):
+                continue
+        elif not _decl_in_src(value):
             continue
         seen.add(name)
         if name not in prev and name not in arg_names:

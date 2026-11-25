@@ -224,10 +224,15 @@ int main() {
     const missing = [];
     if (!envCache.clang || !envCache.clang.found) missing.push('clang++');
     if (!envCache.lldb || !envCache.lldb.found) missing.push('lldb');
+    const pythonBroken = envCache.lldb && envCache.lldb.found
+      && envCache.python && !envCache.python.found;
+    if (pythonBroken) missing.push('lldb 的 Python 支持');
     if (!missing.length) return;
     const mac = /mac/i.test(envCache.os || '');
     el.envText.textContent = '缺少 ' + missing.join(' / ') + '，无法编译或调试 C++。'
-      + (mac ? ' 点「帮我安装」调起 Xcode 命令行工具安装。' : ' 点「帮我安装」打开 LLVM 下载页。');
+      + (pythonBroken
+        ? ' 需要 Python 3.10 x64（官方 Windows 版 lldb 要加载 python310.dll），装好后会自动检测。'
+        : (mac ? ' 点「帮我安装」调起 Xcode 命令行工具安装。' : ' 点「帮我安装」打开 LLVM 下载页。'));
     el.envBar.classList.remove('hidden');
   }
 
