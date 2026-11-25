@@ -4,7 +4,7 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.7.0（2026-11-25，Windows 真机可用 + 发布 v1.1.0）
+- 版本：v2.7.1（2026-11-25，修打包版 tracer 路径带空格导致 0 步 + 发布 v1.1.1）
 - 最后验证：`./smoke.sh` → **PASS**（2026-11-25 10:58，P1 完成后复测）；Windows `tools/verify-win.ps1` → **ALL PASS**（2026-11-25 17:00）
 
 ---
@@ -350,6 +350,15 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 ---
 
 ## 7. 进度日志（倒序，每条 ≤5 行）
+
+### 2026-11-25 · P-7 打包版 0 步（v2.7.1）
+- 现象：打包版跑任何正常程序都 `steps=0 / outcome=crash / 退出码 -1`，源码运行正常。
+- 真因：打包版把 tracer 解到 `%USERPROFILE%\.cppviz\tracer.py`；用户名带空格时
+  lldb 的 `command script import <绝对路径>` 会被按空格拆碎（`'Guan\.cppviz\tracer.py' does not exist`），
+  引号与正斜杠都救不了。源码运行永远走 `./tracer/tracer.py`（无空格），所以测试全绿、用户全红。
+- 修法：`LldbEngine` 把 tracer 复制到本次运行目录，用相对文件名导入（`command script import tracer.py`）。
+- 验收：`verify-win.ps1` 新增 "CASE packaged-like（tracer 路径带空格）"，旧代码 FAIL / 新代码 PASS；
+  打包 zip 从无 tracer 的目录启动，`ok / 5 步 / 输出正确`。
 
 ### 2026-11-25 · P-6 Windows 真机修复（v2.7.0）
 - 从源码复现：`LldbEngine` 的 `settings set target.output-path "…"` 在带空格路径上被 lldb 拆碎

@@ -7,6 +7,7 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -57,10 +58,24 @@ public final class LldbEngine implements TraceEngine {
             return new Result(0, "error", false, -1, Toolchain.lldbHint());
         }
 
+        // lldb 的 `command script import` 在 Windows 上吃不下带空格的绝对路径
+        // （加引号也没用：整条命令仍会按空格被拆碎，报 "'Guan\.cppviz\tracer.py' does not exist"）。
+        // 打包版把 tracer 放在 %USERPROFILE%\.cppviz 下，用户名带空格是常态，所以把
+        // tracer 复制进本次运行目录，用相对文件名导入 —— 运行目录带空格没关系，
+        // 那是 argv，不参与 lldb 的命令行解析。
+        String importArg = "\"" + Toolchain.commandPath(tracerScript) + "\"";
+        try {
+            Path local = exe.getParent().resolve("tracer.py");
+            Files.copy(tracerScript, local, StandardCopyOption.REPLACE_EXISTING);
+            importArg = local.getFileName().toString();
+        } catch (IOException ignored) {
+            // 复制失败才退回绝对路径（路径不含空格时仍然可用）
+        }
+
         List<String> cmd = List.of(
                 lldb, "-b",
                 "-o", "settings set target.output-path " + Toolchain.commandPath(programOut),
-                "-o", "command script import \"" + Toolchain.commandPath(tracerScript) + "\"",
+                "-o", "command script import " + importArg,
                 "-o", "script import tracer; tracer.bootstrap()",
                 "-o", "run",
                 "-o", "script import tracer; tracer.finish()",

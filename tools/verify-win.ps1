@@ -154,6 +154,47 @@ if (-not $envInfo.compilerPath -or -not $envInfo.lldbPath -or -not $envInfo.pyth
 $server.Kill()
 $server.WaitForExit()
 
+# 打包版把 tracer 解到 %USERPROFILE%\.cppviz\tracer.py —— 用户名带空格时，
+# lldb 的 `command script import <绝对路径>` 会被按空格拆碎（真实故障）。
+# 这里专门用一条“带空格的 tracer 路径”再跑一遍 basic，防止回归。
+Step 'CASE packaged-like（tracer 路径带空格）'
+$spacedDir = Join-Path $env:TEMP 'viz tracer'
+New-Item -ItemType Directory -Force $spacedDir | Out-Null
+$spacedTracer = Join-Path $spacedDir 'tracer.py'
+Copy-Item (Join-Path $Repo 'tracer\tracer.py') $spacedTracer -Force
+if ($spacedTracer -notmatch ' ') {
+    Write-Host "  FAIL 该用例需要带空格的路径，实际: $spacedTracer" -ForegroundColor Red; $fail++
+} else {
+    $psi2 = New-Object Diagnostics.ProcessStartInfo
+    $psi2.FileName = $Java
+    $psi2.Arguments = '-cp out\classes dev.cppviz.Main'
+    $psi2.WorkingDirectory = $Repo
+    $psi2.UseShellExecute = $false
+    $psi2.RedirectStandardOutput = $true
+    $psi2.RedirectStandardError = $true
+    $psi2.EnvironmentVariables['VIZ_NO_BROWSER'] = '1'
+    $psi2.EnvironmentVariables['PATH'] = $env:PATH
+    $psi2.EnvironmentVariables['VIZ_TRACER'] = $spacedTracer
+    $server2 = [Diagnostics.Process]::Start($psi2)
+    $first2 = $server2.StandardOutput.ReadLine()
+    if ($first2 -notmatch 'VIZ_PORT=(\d+)') {
+        Write-Host "  FAIL 第二个服务没起来: $first2" -ForegroundColor Red; $fail++
+    } else {
+        $port2 = [int]$Matches[1]
+        $body2 = 'code=' + [uri]::EscapeDataString($basic)
+        $r4 = Invoke-RestMethod -Uri "http://127.0.0.1:$port2/api/run" -Method Post -Body $body2 `
+            -ContentType 'application/x-www-form-urlencoded' -TimeoutSec 180
+        if ($r4.outcome -ne 'ok' -or [int]$r4.steps -lt 3) {
+            Write-Host "  FAIL tracer 在带空格路径下失效（outcome=$($r4.outcome) steps=$($r4.steps)）" -ForegroundColor Red
+            $fail++
+        } else {
+            Write-Host "  PASS 带空格 tracer 路径可用（steps=$($r4.steps)）" -ForegroundColor Green
+        }
+    }
+    $server2.Kill()
+    $server2.WaitForExit()
+}
+
 Step 'RESULT'
 if ($fail -eq 0) { Write-Host 'ALL PASS' -ForegroundColor Green; exit 0 }
 Write-Host "$fail FAILURE(S)" -ForegroundColor Red
