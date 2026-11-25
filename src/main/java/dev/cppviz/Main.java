@@ -38,6 +38,7 @@ public final class Main {
     private static final int MAX_STEPS = 20_000;
 
     private final RunService runs;
+    private final EnvService env = new EnvService();
 
     private Main(RunService runs) {
         this.runs = runs;
@@ -106,6 +107,10 @@ public final class Main {
             if ("/api/runs/clear".equals(path)
                     && "POST".equalsIgnoreCase(exchange.getRequestMethod())) {
                 send(exchange, 200, "application/json; charset=utf-8", Json.write(runs.clearRuns()));
+                return;
+            }
+            if ("/api/env".equals(path) && "GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                send(exchange, 200, "application/json; charset=utf-8", Json.write(env.check()));
                 return;
             }
             if ("/api/runs".equals(path) && "GET".equalsIgnoreCase(exchange.getRequestMethod())) {

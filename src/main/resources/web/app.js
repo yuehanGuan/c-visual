@@ -212,6 +212,26 @@ int main() {
     }
   }
 
+  let envCache = null;
+
+  /* Probe the local toolchain once and explain what is missing. */
+  async function checkEnv() {
+    try {
+      envCache = await (await fetch('/api/env')).json();
+    } catch (ignored) {
+      return;
+    }
+    const missing = [];
+    if (!envCache.clang || !envCache.clang.found) missing.push('clang++');
+    if (!envCache.lldb || !envCache.lldb.found) missing.push('lldb');
+    if (!missing.length) return;
+    const mac = /mac/i.test(envCache.os || '');
+    const hint = mac
+      ? '在终端运行：xcode-select --install'
+      : '安装 LLVM（llvm.org）并把它的 bin 目录加进 PATH';
+    showBanner('缺少 ' + missing.join(' / ') + '，无法编译或调试 C++。' + hint, true);
+  }
+
   let dialogOnOk = null;
 
   const ZOOM_KEY = 'cppviz.zoom';
@@ -274,7 +294,7 @@ int main() {
     el.dialog.classList.remove('hidden');
   }
 
-  const APP_VERSION = 'v1.0.1';
+  const APP_VERSION = 'v1.0.2';
   const BUG_MAIL = '13076662816@163.com';
 
   function bugTemplate() {
@@ -286,6 +306,10 @@ int main() {
       '【c可视 问题反馈】',
       '版本：' + APP_VERSION,
       '系统：' + (navigator.platform || '?') + ' / ' + (navigator.userAgent || '?'),
+      '工具链：' + (envCache
+        ? 'clang ' + (envCache.clang && envCache.clang.found ? '✓' : '✗')
+          + ' / lldb ' + (envCache.lldb && envCache.lldb.found ? '✓' : '✗')
+        : '未知'),
       '',
       '问题描述：',
       '（做了什么、期望什么、实际什么）',
@@ -501,9 +525,15 @@ int main() {
         showBanner(diagText(result.diags) || '编译失败，但没有解析出具体信息。');
         return;
       }
-      case 'engine_error':
-        showBanner(`追踪引擎出错：${result.msg || '未知原因'}`);
+      case 'engine_error': {
+        const message = result.msg || '未知原因';
+        if (/Cannot run program/i.test(message) || /No such file/i.test(message)) {
+          showBanner('找不到 C++ 工具链（clang++ / lldb）。macOS：xcode-select --install；Windows：安装 LLVM 并加入 PATH。');
+        } else {
+          showBanner(`追踪引擎出错：${message}`);
+        }
         return;
+      }
       default:
         break;
     }
@@ -886,6 +916,7 @@ int main() {
         stashStdin();
       }
     }
+    checkEnv();
     if (hash.has('run')) {
       const at = hash.get('run');
       setTimeout(async () => {

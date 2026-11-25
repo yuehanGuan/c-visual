@@ -7,7 +7,7 @@ JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@21}"
 JAVA="$JAVA_HOME/bin/java"
 JAR_TOOL="$JAVA_HOME/bin/jar"
 JPACKAGE="$JAVA_HOME/bin/jpackage"
-VERSION="${VERSION:-1.0.1}"
+VERSION="${VERSION:-1.0.2}"
 APP="c可视"
 JAR_NAME="c-visual.jar"
 

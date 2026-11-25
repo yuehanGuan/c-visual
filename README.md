@@ -40,6 +40,8 @@
 | macOS | 系统自带 `clang++` 和 `lldb`（装 Xcode Command Line Tools 即可：`xcode-select --install`） |
 | Windows | 安装 [LLVM](https://github.com/llvm/llvm-project/releases)（含 `clang++.exe`、`lldb.exe`），并把 `bin` 加进 PATH |
 
+启动时 c可视 会**自动检测** `clang++` / `lldb`；缺少时界面顶部会直接提示安装命令，不会静默失败。
+
 macOS 上被调试的二进制不能放在 `~/Documents`、`~/Desktop`、`~/Downloads`
 （TCC 会让 debugserver 静默挂起）；程序会把它们放到 `~/.cppviz/runs/`，不受影响。
 
