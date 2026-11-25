@@ -1,6 +1,9 @@
 /* Player: runs code on the local backend, loads the JSONL trace, steps through it. */
 
 (() => {
+  /* Samples that need stdin ship a preset so the first run is meaningful. */
+  const SAMPLE_STDIN = { sum: '3\n1 2 3' };
+
   const SAMPLES = {
     basic: `#include <cstdio>
 
@@ -54,6 +57,21 @@ int main() {
     int a = 7, b = 9;
     swap2(&a, &b);
     printf("%d %d\\n", a, b);
+    return 0;
+}
+`,
+    sum: `#include <cstdio>
+
+int main() {
+    int n = 0;
+    scanf("%d", &n);
+    int sum = 0;
+    for (int i = 0; i < n; i++) {
+        int x = 0;
+        scanf("%d", &x);
+        sum += x;
+    }
+    printf("%d\\n", sum);
     return 0;
 }
 `,
@@ -436,6 +454,11 @@ int main() {
       stop();
       CppEditor.setMode('edit');
       CppEditor.setValue(SAMPLES[el.samples.value] || '');
+      const preset = SAMPLE_STDIN[el.samples.value];
+      if (preset !== undefined) {
+        el.stdin.value = preset;
+        stashStdin();
+      }
       el.editBtn.classList.add('hidden');
       hideBanner();
       el.frames.innerHTML = '<p class="empty">点右上角「运行 ▶」开始</p>';
@@ -556,6 +579,11 @@ int main() {
     if (sample && SAMPLES[sample]) {
       CppEditor.setValue(SAMPLES[sample]);
       el.samples.value = sample;
+      const preset = SAMPLE_STDIN[sample];
+      if (preset !== undefined) {
+        el.stdin.value = preset;
+        stashStdin();
+      }
     }
     if (hash.has('run')) {
       const at = hash.get('run');
