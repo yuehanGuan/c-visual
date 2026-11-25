@@ -335,7 +335,7 @@ int main() {
     el.dialog.classList.remove('hidden');
   }
 
-  const APP_VERSION = 'v1.0.4';
+  const APP_VERSION = 'v1.1.2';
   const BUG_MAIL = '13076662816@163.com';
 
   function bugTemplate() {
