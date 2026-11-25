@@ -4,7 +4,7 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.6.1（2026-11-25，打包：c可视 + macOS dmg + Windows/CI）
+- 版本：v2.6.2（2026-11-25，发布 v1.0.0：GitHub Release 双平台包）
 - 最后验证：`./smoke.sh` → **PASS**（2026-11-25 10:58，P1 完成后复测）
 
 ---
@@ -53,7 +53,7 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 - **已知 bug**：0 个（B1/B2/B3 全部修复）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
 - **代码规模**：Java 918 行｜前端 2581 行（含 html/css）｜Python（tracer）769 行
-- **累计 token**：约 **2.20M 净内容** / 约 6.2M 原始
+- **累计 token**：约 **2.22M 净内容** / 约 6.3M 原始
 
 ---
 
@@ -181,6 +181,14 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
   `size` 仍是真实长度，超限节点带 `truncated: true` → 同用例 trace **5.0 MB → 597 KB**
 - 画布：单元格上限按可用宽度算（640px 容器约 11 个），不再画出屏幕
 - 验收：`smoke.sh` PASS（23:04）；无头浏览器 `.cell` 11 个、SVG 宽 595
+
+### 发布 v1.0.0（2026-11-25）
+- GitHub：https://github.com/yuehanGuan/c-visual （public，MIT）
+- Release：https://github.com/yuehanGuan/c-visual/releases/tag/v1.0.0
+  - `c-visual-1.0.0.dmg`（57M，已从 Release 下载并挂载实测：页面标题/运行正常）
+  - `c-visual-windows.zip`（53M，CI 构建通过；Windows 运行时未真机验证）
+- CI：`.github/workflows/release.yml` 绿灯（macOS dmg + Windows zip + Release 自动挂载）
+- 修过：macos-14 label → macos-latest；jar 文件名去中文（Windows jar 工具崩）；Windows 应用名改 ASCII（jpackage 拒绝中文）
 
 ### P 打包（2026-11-25，用户："做 windows 和 mac 双版本的包，上架 github"）
 - 应用改名 **c可视**（网页标题/品牌、.app 名）；发布文件名用 ASCII：`c-visual-<ver>.dmg`、`c-visual-windows.zip`
