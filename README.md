@@ -80,6 +80,12 @@ Windows 在仓库根目录用 PowerShell：`./package.ps1`（产出 `dist/out` �
 - 单文件程序；不支持多文件工程
 - 堆对象靠指针遍历发现，最多 64 个节点；更深的结构只显示前 64 个
 
+## 反馈问题
+
+- **软件内**：工具条 **「反馈」** 会自动填入版本、系统、当前代码、输入和错误信息，可一键复制或发邮件
+- **邮件**：**13076662816@163.com**
+- **GitHub**：[提交 Issue](https://github.com/yuehanGuan/c-visual/issues/new?template=bug_report.yml)
+
 ## 致谢 / 许可
 
 题库风格参考洛谷（Luogu）等竞赛平台；本项目与这些平台无关。

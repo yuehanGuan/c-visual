@@ -274,6 +274,62 @@ int main() {
     el.dialog.classList.remove('hidden');
   }
 
+  const APP_VERSION = 'v1.0.0';
+  const BUG_MAIL = '13076662816@163.com';
+
+  function bugTemplate() {
+    const code = (CppEditor.getValue() || '').trim();
+    const input = el.stdin && el.stdin.value ? el.stdin.value.trim() : '';
+    const banner = el.banner && !el.banner.classList.contains('hidden')
+      ? el.banner.textContent.trim() : '';
+    const lines = [
+      '【c可视 问题反馈】',
+      '版本：' + APP_VERSION,
+      '系统：' + (navigator.platform || '?') + ' / ' + (navigator.userAgent || '?'),
+      '',
+      '问题描述：',
+      '（做了什么、期望什么、实际什么）',
+      '',
+      '复现代码：',
+      code || '（粘贴代码）',
+    ];
+    if (input) {
+      lines.push('', '输入数据（stdin）：', input);
+    }
+    if (banner) {
+      lines.push('', '错误信息：', banner);
+    }
+    return lines.join('\n');
+  }
+
+  function openBugDialog() {
+    el.bugReport.value = bugTemplate();
+    el.bugDialog.classList.remove('hidden');
+    el.bugReport.focus();
+    el.bugReport.select();
+  }
+
+  function closeBugDialog() {
+    el.bugDialog.classList.add('hidden');
+  }
+
+  async function copyBugReport() {
+    try {
+      await navigator.clipboard.writeText(el.bugReport.value);
+    } catch (ignored) {
+      el.bugReport.select();
+      document.execCommand('copy');
+    }
+    el.bugCopy.textContent = '已复制';
+    setTimeout(() => { el.bugCopy.textContent = '复制'; }, 1500);
+  }
+
+  function mailBugReport() {
+    const subject = encodeURIComponent('c可视 问题反馈');
+    const body = encodeURIComponent((el.bugReport.value || '').slice(0, 1800));
+    window.location.href = 'mailto:' + BUG_MAIL + '?subject=' + subject + '&body=' + body;
+  }
+
   /** Delete every stored run after the user confirms in the dialog. */
   async function clearRuns() {
     try {
@@ -673,6 +729,13 @@ int main() {
     el.zoomIn.addEventListener('click', () => setZoom(zoom + ZOOM_STEP));
 
     el.exportTrace.addEventListener('click', exportTrace);
+    el.bugBtn.addEventListener('click', openBugDialog);
+    el.bugClose.addEventListener('click', closeBugDialog);
+    el.bugCopy.addEventListener('click', copyBugReport);
+    el.bugMail.addEventListener('click', mailBugReport);
+    el.bugDialog.addEventListener('click', (event) => {
+      if (event.target === el.bugDialog) closeBugDialog();
+    });
     el.source.addEventListener('input', () => {
       if (codeTimer) clearTimeout(codeTimer);
       codeTimer = setTimeout(stashCode, 500);
@@ -773,6 +836,12 @@ int main() {
     el.stdin = $('stdin');
     el.source = $('source');
     el.exportTrace = $('exportTrace');
+    el.bugBtn = $('bugBtn');
+    el.bugDialog = $('bugDialog');
+    el.bugReport = $('bugReport');
+    el.bugCopy = $('bugCopy');
+    el.bugMail = $('bugMail');
+    el.bugClose = $('bugClose');
     el.expect = $('expect');
     el.history = $('history');
     el.historyBox = $('historyBox');

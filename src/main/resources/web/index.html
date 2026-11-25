@@ -27,6 +27,7 @@
     <button id="editBtn" class="ghost hidden">编辑代码</button>
     <button id="foldBtn" class="ghost">折叠：开</button>
     <button id="exportTrace" class="ghost" title="下载当前回放的 trace.jsonl">导出</button>
+    <button id="bugBtn" class="ghost" title="反馈问题（13076662816@163.com）">反馈</button>
     <button id="clearRuns" class="ghost" title="删除 ~/.cppviz/runs 下的历史记录">清空历史</button>
     <button id="runBtn" class="primary">运行 ▶</button>
   </div>
@@ -114,6 +115,22 @@
   </label>
   <span id="status" class="status"></span>
 </footer>
+
+<div id="bugDialog" class="dialog hidden">
+  <div class="dialog-box bug-box">
+    <h3>反馈问题</h3>
+    <p class="bug-hint">
+      复制下面的内容发到 <a href="mailto:13076662816@163.com">13076662816@163.com</a>，
+      或到 <a href="https://github.com/yuehanGuan/c-visual/issues/new" target="_blank" rel="noopener">GitHub Issues</a> 提交。
+    </p>
+    <textarea id="bugReport" class="bug-report" readonly spellcheck="false"></textarea>
+    <div class="dialog-actions">
+      <button id="bugCopy" class="ghost">复制</button>
+      <button id="bugMail" class="primary">发邮件</button>
+      <button id="bugClose" class="ghost">关闭</button>
+    </div>
+  </div>
+</div>
 
 <div id="dialog" class="dialog hidden">
   <div class="dialog-box">
