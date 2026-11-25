@@ -9,6 +9,7 @@ JAR_TOOL="$JAVA_HOME/bin/jar"
 JPACKAGE="$JAVA_HOME/bin/jpackage"
 VERSION="${VERSION:-1.0.0}"
 APP="c可视"
+JAR_NAME="c-visual.jar"
 
 [ -x "$JPACKAGE" ] || { echo "找不到 jpackage：$JPACKAGE（需要 JDK 21）" >&2; exit 1; }
 
@@ -16,14 +17,14 @@ APP="c可视"
 
 rm -rf dist
 mkdir -p dist/input dist/out
-"$JAR_TOOL" --create --file "dist/input/$APP.jar" --main-class dev.cppviz.Main -C out/classes .
+"$JAR_TOOL" --create --file "dist/input/$JAR_NAME" --main-class dev.cppviz.Main -C out/classes .
 
 "$JPACKAGE" \
   --type app-image \
   --name "$APP" \
   --app-version "$VERSION" \
   --input dist/input \
-  --main-jar "$APP.jar" \
+  --main-jar "$JAR_NAME" \
   --main-class dev.cppviz.Main \
   --dest dist/out \
   --java-options "-Xmx512m"
@@ -33,7 +34,7 @@ mkdir -p dist/input dist/out
   --name "$APP" \
   --app-version "$VERSION" \
   --input dist/input \
-  --main-jar "$APP.jar" \
+  --main-jar "$JAR_NAME" \
   --main-class dev.cppviz.Main \
   --dest dist/out \
   --mac-package-name "cppviz"

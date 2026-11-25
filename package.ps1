@@ -8,6 +8,7 @@ $JAR = Join-Path $JAVA_HOME 'bin\jar.exe'
 $JPACKAGE = Join-Path $JAVA_HOME 'bin\jpackage.exe'
 $VERSION = if ($env:VERSION) { $env:VERSION } else { '1.0.0' }
 $APP = 'c可视'
+$JAR_NAME = 'c-visual.jar'
 
 if (-not (Test-Path $JPACKAGE)) { throw "jpackage not found: $JPACKAGE (JDK 21 required)" }
 
@@ -20,11 +21,11 @@ Copy-Item -Recurse -Force src\main\resources\* out\classes\
 Copy-Item -Force tracer\tracer.py out\classes\tracer.py
 
 New-Item -ItemType Directory -Force dist\input, dist\out | Out-Null
-& $JAR --create --file "dist\input\$APP.jar" --main-class dev.cppviz.Main -C out\classes .
+& $JAR --create --file "dist\input\$JAR_NAME" --main-class dev.cppviz.Main -C out\classes .
 if ($LASTEXITCODE -ne 0) { throw 'jar failed' }
 
 & $JPACKAGE --type app-image --name $APP --app-version $VERSION `
-  --input dist\input --main-jar "$APP.jar" --main-class dev.cppviz.Main `
+  --input dist\input --main-jar "$JAR_NAME" --main-class dev.cppviz.Main `
   --dest dist\out --java-options "-Xmx512m"
 if ($LASTEXITCODE -ne 0) { throw 'jpackage failed' }
 
