@@ -497,4 +497,13 @@ button.ghost { background: transparent; }
 .heap-cells text.cell-idx { font-size: 9.5px; fill: #565e72; }
 .heap-cells rect { fill: var(--panel-2); stroke: var(--line); }
 .heap-cells rect.ghost { fill: none; stroke-dasharray: 3 3; stroke: #2c3243; }
+/* ---------- memory pane sizing / zoom ---------- */
+.frames { min-height: 220px; }
+.frames .mem { flex: 0 0 auto; }
+.ct-panel #calltree { max-height: 180px; overflow: auto; }
+.pane-right { display: flex; align-items: center; gap: 10px; }
+.zoom { display: flex; align-items: center; gap: 2px; }
+.zoom button { padding: 0 6px; font-size: 13px; line-height: 18px; }
+.zoom-label { font: 11.5px var(--mono); color: var(--muted); min-width: 36px; text-align: center; }
+
 .heap-cells rect.changed { stroke: #f5b942; fill: var(--changed); }

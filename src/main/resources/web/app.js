@@ -201,6 +201,45 @@ int main() {
 
   let dialogOnOk = null;
 
+  const ZOOM_KEY = 'cppviz.zoom';
+  const ZOOM_MIN = 100;
+  const ZOOM_MAX = 200;
+  const ZOOM_STEP = 25;
+  let zoom = 100;
+
+  /* Scale the memory SVG's viewport; the viewBox is unchanged, so text and
+   * cells scale together and the pane simply scrolls. */
+  function applyZoom() {
+    const svg = el.frames && el.frames.querySelector('svg.mem');
+    if (!svg) return;
+    const w = Number(svg.getAttribute('width')) || 0;
+    const h = Number(svg.getAttribute('height')) || 0;
+    if (!w || !h) return;
+    svg.style.width = Math.round(w * zoom / 100) + 'px';
+    svg.style.height = Math.round(h * zoom / 100) + 'px';
+    if (el.zoomLabel) el.zoomLabel.textContent = zoom + '%';
+  }
+
+  function setZoom(next) {
+    zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, next));
+    try {
+      localStorage.setItem(ZOOM_KEY, String(zoom));
+    } catch (ignored) {
+      // private mode: zoom still works for this session
+    }
+    applyZoom();
+  }
+
+  function initZoom() {
+    try {
+      const saved = Number(localStorage.getItem(ZOOM_KEY));
+      if (Number.isFinite(saved) && saved >= ZOOM_MIN && saved <= ZOOM_MAX) zoom = saved;
+    } catch (ignored) {
+      // default 100%
+    }
+    if (el.zoomLabel) el.zoomLabel.textContent = zoom + '%';
+  }
+
   /* Deep recursion often looks like a timeout or a crash: the last recorded
    * step has many identical frames.  Name it instead of blaming a dead loop. */
   function deepRecursionNote() {
@@ -361,6 +400,7 @@ int main() {
     CppEditor.highlight(step.line);
     el.frames.innerHTML = Vars.renderFrames(step.frames, prev ? prev.frames : null);
     Memory.render(el.frames, step, prev);
+    applyZoom();
     Memory.renderHeapPanel(el.heap, step, prev);
     CallTree.render(el.calltree, state.steps, clamped);
     el.counter.textContent = counterText(clamped);
@@ -477,6 +517,9 @@ int main() {
       if (state.steps.length) goTo(state.idx);
     });
 
+    el.zoomOut.addEventListener('click', () => setZoom(zoom - ZOOM_STEP));
+    el.zoomIn.addEventListener('click', () => setZoom(zoom + ZOOM_STEP));
+
     el.clearRuns.addEventListener('click', () => {
       showDialog('清空历史记录',
         '将删除 ~/.cppviz/runs 下的所有历史 trace，无法恢复。确定继续？', clearRuns);
@@ -541,6 +584,9 @@ int main() {
   function init() {
     el.banner = $('banner');
     el.frames = $('frames');
+    el.zoomIn = $('zoomIn');
+    el.zoomOut = $('zoomOut');
+    el.zoomLabel = $('zoomLabel');
     el.heap = $('heap');
     el.calltree = $('calltree');
     el.programOutput = $('programOutput');
@@ -568,6 +614,7 @@ int main() {
     el.dialogOk = $('dialogOk');
     el.dialogCancel = $('dialogCancel');
     initStdinSets();
+    initZoom();
 
     CppEditor.init();
     CppEditor.setValue(SAMPLES.basic);

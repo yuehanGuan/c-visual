@@ -4,8 +4,8 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.3.1（2026-11-25，输入入口显眼化 + 读入求和示例）
-- 最后验证：`./smoke.sh` → **PASS**（2026-11-25 09:00，T-7.1 后复测）
+- 版本：v2.4.0（2026-11-25，深栈布局修复 + 记忆视图缩放）
+- 最后验证：`./smoke.sh` → **PASS**（2026-11-25 09:07，T-8.1 后复测）
 
 ---
 
@@ -41,7 +41,7 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 ### 0.4 每轮收工必须回写
 1. 本文件 §1（当前状态）
 2. 本文件 §7 顶部加一条 ≤5 行日志
-3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K48 往后编）
+3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K49 往后编）
 
 ---
 
@@ -52,8 +52,8 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 - **阻塞**：无
 - **已知 bug**：0 个（B1/B2/B3 全部修复）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
-- **代码规模**：Java 848 行｜前端 2322 行（含 html/css）｜Python（tracer）731 行
-- **累计 token**：约 **1.96M 净内容** / 约 5.65M 原始
+- **代码规模**：Java 848 行｜前端 2385 行（含 html/css）｜Python（tracer）731 行
+- **累计 token**：约 **1.98M 净内容** / 约 5.7M 原始
 
 ---
 
@@ -83,7 +83,7 @@ src/main/resources/web/      index.html style.css app.js(播放器) memory.js(SV
                              editor.js(代码高亮) views.js(兜底) calltree.js(调用树)
 tracer/tracer.py             LLDB 内嵌 Python，逐行断点 → JSONL
 docs/TRACE_SCHEMA.md         数据契约（引擎 ↔ UI）
-docs/PITFALLS.md             坑 K1–K48
+docs/PITFALLS.md             坑 K1–K49
 orders/                      派单文件 + README(模板)
 samples/                     basic vector recursion compile_error stl qs glob maponly
 logs/                        归档日志 + 截图
@@ -182,6 +182,14 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 - 画布：单元格上限按可用宽度算（640px 容器约 11 个），不再画出屏幕
 - 验收：`smoke.sh` PASS（23:04）；无头浏览器 `.cell` 11 个、SVG 宽 595
 
+### T-8.1 深栈布局 + 记忆视图缩放（2026-11-25，用户反馈"栈深了图特别小"）
+- 真因不是"图变小"，而是**被挤没**：42 层递归时调用树长到 840px，把记忆区挤到 24px；
+  SVG 作为 flex 子项又被 `flex-shrink` 压到 **高度 0**
+- 修：`.frames { min-height: 220px }`、`.frames .mem { flex: 0 0 auto }`、
+  `#calltree { max-height: 180px; overflow: auto }` → 实测 42 层时记忆区 249px、SVG 3310px 可滚动
+- 新增缩放：面板头 `− 100% ＋`，100–200%（步进 25），缩放 SVG 视口（viewBox 不变），
+  localStorage 持久化；实测 125% → 4138px、150% → 4965px，刷新后仍保留
+
 ### T-7.1 输入数据入口（2026-11-25，用户反馈"竞赛有输入，现在做不到"）
 - 实测 scanf / cin 读 stdin 本来就通（输入 `3 / 1 2 3` → 输出 6），问题在"入口太隐蔽 + 没有读输入的示例"
 - stdin 面板默认展开、改名「输入数据（stdin）」；新增示例「读入求和」，选中即填入 `3 / 1 2 3`
@@ -279,6 +287,11 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 ---
 
 ## 7. 进度日志（倒序，每条 ≤5 行）
+
+### 2026-11-25 · T-8.1 深栈布局 + 缩放（v2.4.0）
+- 真因：深递归时调用树把记忆区挤到 24px，SVG 被 flex-shrink 压成 0 高 → 布局修正
+- 记忆视图缩放 `− 100% ＋`（100–200%），SVG 视口缩放、localStorage 记忆
+- 实测 42 层：记忆区 249px、SVG 3310px 可滚；125%/150% → 4138/4965px；smoke PASS（09:07）
 
 ### 2026-11-25 · T-7.1 输入入口 + 读入求和示例（v2.3.1）
 - stdin 面板默认展开、改名「输入数据（stdin）」；示例「读入求和」自带 `3 / 1 2 3`
@@ -387,6 +400,7 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 | T-5.2 vector 箭头 | ≈0.02M | ≈0.06M |
 | T-6 堆区平面视图 | ≈0.03M | ≈0.09M |
 | T-7.1 输入入口 | ≈0.01M | ≈0.03M |
-| **累计** | **≈1.96M** | **≈5.65M** |
+| T-8.1 深栈+缩放 | ≈0.02M | ≈0.06M |
+| **累计** | **≈1.98M** | **≈5.7M** |
 
 **省 token 的关键**：本文件（≈3k token）替代聊天历史（几十 k）；派单前只读 §1/§4/§5 与相关坑。
