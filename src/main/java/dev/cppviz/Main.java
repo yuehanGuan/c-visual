@@ -49,7 +49,19 @@ public final class Main {
         RunService runs = new RunService(tracer);
 
         Main app = new Main(runs);
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        // A stable port keeps localStorage (code, stdin, expected output) alive
+        // across launches; fall back to a random one when 47821-47825 are busy.
+        HttpServer server = null;
+        for (int candidate = 47821; candidate <= 47825 && server == null; candidate++) {
+            try {
+                server = HttpServer.create(new InetSocketAddress("127.0.0.1", candidate), 0);
+            } catch (IOException inUse) {
+                // try the next candidate
+            }
+        }
+        if (server == null) {
+            server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        }
         server.createContext("/api/", app::handleApi);
         server.createContext("/", app::handleStatic);
         server.setExecutor(Executors.newFixedThreadPool(4));

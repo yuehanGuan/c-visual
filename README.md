@@ -26,10 +26,24 @@
 
 ## 下载安装
 
-- **macOS**：从[最新 Release](https://github.com/yuehanGuan/c-visual/releases/latest) 下载 `c-visual-<版本>.dmg`，打开后把 `c可视` 拖进「应用程序」。
-  第一次打开若被 Gatekeeper 拦住：右键 → 打开。
-- **Windows**：从[最新 Release](https://github.com/yuehanGuan/c-visual/releases/latest) 下载 `c-visual-windows.zip`，解压后运行 `c-visual\c-visual.exe`。
-  已在 Windows 11 + LLVM 23.1.6 真机验证（编译 / 逐行追踪 / STL 容器 / 崩溃定位全部通过）。
+安装包在 **[Releases](https://github.com/yuehanGuan/c-visual/releases/latest)**。
+
+### macOS
+
+1. 下载 `c-visual-<版本>.dmg`，打开后把 **c可视** 拖进「应用程序」
+2. **第一次打开会被 Gatekeeper 拦住**，提示「Apple 无法验证 c可视」——因为安装包没有 Apple 开发者签名，不是程序有问题。点「完成」后二选一：
+   - **图形界面**：系统设置 → 隐私与安全性 → 滚到「安全性」→ 点「仍要打开」→ 输入密码/Touch ID → 再点「打开」
+   - **终端**：`xattr -dr com.apple.quarantine "/Applications/c可视.app"`
+3. 之后再双击就能直接打开
+
+> 逐步说明、卸载方法、常见报错见 **[安装指南](docs/install.md)**。
+
+### Windows
+
+1. 安装 [LLVM](https://github.com/llvm/llvm-project/releases)（要 `clang++.exe` 和 `lldb.exe`），把它的 `bin` 目录加进 PATH
+2. 下载 `c-visual-windows.zip`，解压到任意目录
+3. 双击 `c-visual\c-visual.exe`；若 SmartScreen 拦截，点「更多信息 → 仍要运行」
+4. 已在 Windows 11 + LLVM 23.1.6 真机验证（编译 / 逐行追踪 / STL 容器 / 崩溃定位全部通过）
 
 ## 环境要求
 
