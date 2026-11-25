@@ -1,4 +1,4 @@
-# C++ 代码可视化（cppviz）
+# c可视 — C/C++ 代码可视化
 
 把 C++ 代码**一行一行执行**给学生看，同时把**栈帧、变量、数组/容器、指针、链表/树、递归结构**画出来。
 
@@ -24,9 +24,9 @@
 
 ## 下载安装
 
-- **macOS**：下载 `cppviz-1.0.0.dmg`，打开后把 `cppviz` 拖进「应用程序」。
+- **macOS**：下载 `c-visual-1.0.0.dmg`，打开后把 `c可视` 拖进「应用程序」。
   第一次打开若被 Gatekeeper 拦住：右键 → 打开。
-- **Windows**：下载 `cppviz-windows.zip`，解压后运行 `cppviz\cppviz.exe`。
+- **Windows**：下载 `c-visual-windows.zip`，解压后运行 `c可视\c可视.exe`。
   **Windows 版尚未在真机验证**（依赖 LLDB 的 Python 脚本接口），遇到问题请开 issue。
 
 ## 环境要求
@@ -65,7 +65,7 @@ cd cppviz
 ## 打包
 
 ```bash
-./package.sh                    # macOS：dist/out/cppviz.app + cppviz-1.0.0.dmg
+./package.sh                    # macOS：dist/out/c可视.app + c-visual-1.0.0.dmg
 ```
 Windows 在仓库根目录用 PowerShell：`./package.ps1`（产出 `dist/out` 下的 zip）。
 推 `v*` tag 时 GitHub Actions 会自动构建两个平台的包并挂到 Release。

@@ -7,7 +7,7 @@ $JAVAC = Join-Path $JAVA_HOME 'bin\javac.exe'
 $JAR = Join-Path $JAVA_HOME 'bin\jar.exe'
 $JPACKAGE = Join-Path $JAVA_HOME 'bin\jpackage.exe'
 $VERSION = if ($env:VERSION) { $env:VERSION } else { '1.0.0' }
-$APP = 'cppviz'
+$APP = 'c可视'
 
 if (-not (Test-Path $JPACKAGE)) { throw "jpackage not found: $JPACKAGE (JDK 21 required)" }
 
@@ -28,5 +28,5 @@ if ($LASTEXITCODE -ne 0) { throw 'jar failed' }
   --dest dist\out --java-options "-Xmx512m"
 if ($LASTEXITCODE -ne 0) { throw 'jpackage failed' }
 
-Compress-Archive -Path "dist\out\$APP" -DestinationPath "dist\out\$APP-windows.zip" -Force
-Write-Host "package ok: dist\out\$APP-windows.zip"
+Compress-Archive -Path "dist\out\$APP" -DestinationPath "dist\out\c-visual-windows.zip" -Force
+Write-Host "package ok: dist\out\c-visual-windows.zip"

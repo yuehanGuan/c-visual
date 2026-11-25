@@ -8,7 +8,7 @@ JAVA="$JAVA_HOME/bin/java"
 JAR_TOOL="$JAVA_HOME/bin/jar"
 JPACKAGE="$JAVA_HOME/bin/jpackage"
 VERSION="${VERSION:-1.0.0}"
-APP="cppviz"
+APP="c可视"
 
 [ -x "$JPACKAGE" ] || { echo "找不到 jpackage：$JPACKAGE（需要 JDK 21）" >&2; exit 1; }
 
@@ -38,4 +38,8 @@ mkdir -p dist/input dist/out
   --dest dist/out \
   --mac-package-name "cppviz"
 
+DMG="dist/out/$APP-$VERSION.dmg"
+if [ -f "$DMG" ]; then
+  mv "$DMG" "dist/out/c-visual-$VERSION.dmg"
+fi
 echo "package ok: dist/out"

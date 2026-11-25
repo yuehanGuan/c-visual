@@ -4,7 +4,7 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.6.0（2026-11-25，P1 全部完成：历史/持久化导出/输出按步）
+- 版本：v2.6.1（2026-11-25，打包：c可视 + macOS dmg + Windows/CI）
 - 最后验证：`./smoke.sh` → **PASS**（2026-11-25 10:58，P1 完成后复测）
 
 ---
@@ -53,7 +53,7 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 - **已知 bug**：0 个（B1/B2/B3 全部修复）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
 - **代码规模**：Java 918 行｜前端 2581 行（含 html/css）｜Python（tracer）769 行
-- **累计 token**：约 **2.15M 净内容** / 约 6.1M 原始
+- **累计 token**：约 **2.20M 净内容** / 约 6.2M 原始
 
 ---
 
@@ -181,6 +181,13 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
   `size` 仍是真实长度，超限节点带 `truncated: true` → 同用例 trace **5.0 MB → 597 KB**
 - 画布：单元格上限按可用宽度算（640px 容器约 11 个），不再画出屏幕
 - 验收：`smoke.sh` PASS（23:04）；无头浏览器 `.cell` 11 个、SVG 宽 595
+
+### P 打包（2026-11-25，用户："做 windows 和 mac 双版本的包，上架 github"）
+- 应用改名 **c可视**（网页标题/品牌、.app 名）；发布文件名用 ASCII：`c-visual-<ver>.dmg`、`c-visual-windows.zip`
+- tracer 打进 jar，启动时从 classpath 解到 `~/.cppviz/tracer.py`；`a.exe`（Windows）+ lldb `-o` 路径加引号
+- `package.sh`（jpackage app-image + dmg）已在本机产出并实测：`dist/out/c可视.app`（161M，任意目录可启动）、`c-visual-1.0.0.dmg`（55M）
+- `package.ps1`（Windows app-image + zip）与 `.github/workflows/release.yml`（push `v*` 自动构建两端并挂 Release）已就绪，Windows 运行时未在真机验证
+- 仓库仍无 remote，`gh` 未登录 → 上架待用户提供 GitHub 授权/仓库
 
 ### T-12 P1 全部完成（2026-11-25）
 1. **历史运行列表** ✅
