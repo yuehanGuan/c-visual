@@ -162,8 +162,9 @@ head  Node · 0x100631290 · 2 字段
 右键 → 打开，或「系统设置 → 隐私与安全性」里点"仍要打开"。
 
 **提示找不到 clang++ / lldb？**
-启动时软件会自动检测，顶部提示「缺少 clang++ / lldb」。
-macOS：在终端运行 `xcode-select --install`（装完重开 c可视）。Windows：装 LLVM 并把 `bin` 加进 PATH。
+启动时软件会自动检测，顶部出现「缺少 clang++ / lldb」和 **「帮我安装」** 按钮：
+macOS 会弹出系统安装窗口（同 `xcode-select --install`），Windows 会打开 LLVM 下载页；
+装好后软件每 3 秒自动检测，就绪后环境条消失。
 
 **一直显示"运行超时"？**
 程序可能死循环，或步数超过上限；把「步数上限」调小一点再试。

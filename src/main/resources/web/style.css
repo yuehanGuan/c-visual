@@ -110,6 +110,9 @@ button.ghost { background: transparent; }
   overflow: auto;
 }
 .banner.warn { background: #2a2417; border-bottom-color: #443a22; color: #ffd591; }
+.envbar { display: flex; align-items: center; gap: 10px; padding: 7px 16px; background: #2a1d1d; border-bottom: 1px solid #4a2a2a; color: #ffb4a8; font-size: 12.5px; }
+.envbar span { flex: 1; }
+.envbar button { padding: 3px 10px; font-size: 12px; }
 
 /* ---------- layout ---------- */
 .layout {

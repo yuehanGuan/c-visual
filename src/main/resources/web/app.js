@@ -226,11 +226,47 @@ int main() {
     if (!envCache.lldb || !envCache.lldb.found) missing.push('lldb');
     if (!missing.length) return;
     const mac = /mac/i.test(envCache.os || '');
-    const hint = mac
-      ? '在终端运行：xcode-select --install'
-      : '安装 LLVM（llvm.org）并把它的 bin 目录加进 PATH';
-    showBanner('缺少 ' + missing.join(' / ') + '，无法编译或调试 C++。' + hint, true);
+    el.envText.textContent = '缺少 ' + missing.join(' / ') + '，无法编译或调试 C++。'
+      + (mac ? ' 点「帮我安装」调起 Xcode 命令行工具安装。' : ' 点「帮我安装」打开 LLVM 下载页。');
+    el.envBar.classList.remove('hidden');
   }
+
+  /* Guided install: macOS opens the Xcode CLT dialog, Windows opens LLVM. */
+  async function fixEnv() {
+    el.envFix.disabled = true;
+    el.envFix.textContent = '正在处理…';
+    try {
+      const result = await (await fetch('/api/env/install', { method: 'POST' })).json();
+      if (result.message) el.envText.textContent = result.message;
+      if (result.url) window.open(result.url, '_blank', 'noopener');
+      if (result.ok || result.url) pollEnv(0);
+    } catch (failure) {
+      el.envText.textContent = '调用失败：' + failure;
+    } finally {
+      el.envFix.disabled = false;
+      el.envFix.textContent = '帮我安装';
+    }
+  }
+
+  function pollEnv(attempt) {
+    if (attempt > 100) return;
+    setTimeout(async () => {
+      try {
+        const env = await (await fetch('/api/env')).json();
+        envCache = env;
+        const ready = env.clang && env.clang.found && env.lldb && env.lldb.found;
+        if (ready) {
+          el.envBar.classList.add('hidden');
+          el.status.textContent = '工具链已就绪';
+          return;
+        }
+      } catch (ignored) {
+        // keep polling
+      }
+      pollEnv(attempt + 1);
+    }, 3000);
+  }
+
 
   let dialogOnOk = null;
 
@@ -294,7 +330,7 @@ int main() {
     el.dialog.classList.remove('hidden');
   }
 
-  const APP_VERSION = 'v1.0.2';
+  const APP_VERSION = 'v1.0.3';
   const BUG_MAIL = '13076662816@163.com';
 
   function bugTemplate() {
@@ -760,6 +796,8 @@ int main() {
 
     el.exportTrace.addEventListener('click', exportTrace);
     el.bugBtn.addEventListener('click', openBugDialog);
+    el.envFix.addEventListener('click', fixEnv);
+    el.envHide.addEventListener('click', () => el.envBar.classList.add('hidden'));
     el.bugClose.addEventListener('click', closeBugDialog);
     el.bugCopy.addEventListener('click', copyBugReport);
     el.bugMail.addEventListener('click', mailBugReport);
@@ -867,6 +905,10 @@ int main() {
     el.source = $('source');
     el.exportTrace = $('exportTrace');
     el.bugBtn = $('bugBtn');
+    el.envBar = $('envBar');
+    el.envText = $('envText');
+    el.envFix = $('envFix');
+    el.envHide = $('envHide');
     el.bugDialog = $('bugDialog');
     el.bugReport = $('bugReport');
     el.bugCopy = $('bugCopy');

@@ -44,4 +44,45 @@ public final class EnvService {
         }
         return out;
     }
+
+    /** Best-effort guided install: opens the platform's own installer. */
+    public Map<String, Object> install() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("ok", false);
+        out.put("url", "");
+        String os = System.getProperty("os.name", "").toLowerCase();
+        if (os.contains("mac")) {
+            Process process = null;
+            try {
+                process = new ProcessBuilder("/usr/bin/xcode-select", "--install")
+                        .redirectErrorStream(true).start();
+                if (!process.waitFor(15, TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                    out.put("message", "系统没有弹出安装窗口，请在终端手动运行：xcode-select --install");
+                    return out;
+                }
+                String text = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+                boolean ok = process.exitValue() == 0;
+                out.put("ok", ok);
+                out.put("message", text.isEmpty()
+                        ? (ok ? "已调起系统安装窗口，按提示完成即可" : "请在终端手动运行：xcode-select --install")
+                        : text);
+            } catch (IOException failure) {
+                out.put("message", "无法运行 xcode-select：" + failure.getMessage());
+            } catch (InterruptedException failure) {
+                Thread.currentThread().interrupt();
+                out.put("message", "被中断");
+            } finally {
+                if (process != null && process.isAlive()) {
+                    process.destroyForcibly();
+                }
+            }
+        } else if (os.contains("win")) {
+            out.put("url", "https://github.com/llvm/llvm-project/releases/latest");
+            out.put("message", "请下载 LLVM（Windows installer），安装时勾选把 LLVM 加入 PATH");
+        } else {
+            out.put("message", "请用系统包管理器安装 clang 和 lldb");
+        }
+        return out;
+    }
 }

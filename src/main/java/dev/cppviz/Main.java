@@ -113,6 +113,11 @@ public final class Main {
                 send(exchange, 200, "application/json; charset=utf-8", Json.write(env.check()));
                 return;
             }
+            if ("/api/env/install".equals(path)
+                    && "POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                send(exchange, 200, "application/json; charset=utf-8", Json.write(env.install()));
+                return;
+            }
             if ("/api/runs".equals(path) && "GET".equalsIgnoreCase(exchange.getRequestMethod())) {
                 send(exchange, 200, "application/json; charset=utf-8",
                         Json.write(Map.of("runs", runs.listRuns())));
