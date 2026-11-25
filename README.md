@@ -80,3 +80,5 @@ Windows 在仓库根目录用 PowerShell：`./package.ps1`（产出 `dist/out` �
 ## 致谢 / 许可
 
 题库风格参考洛谷（Luogu）等竞赛平台；本项目与这些平台无关。
+
+代码以 **MIT** 协议开源，见 [LICENSE](LICENSE)。
