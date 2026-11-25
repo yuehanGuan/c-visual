@@ -487,12 +487,14 @@ button.ghost { background: transparent; }
 .heap-head { font: 12px var(--mono); color: var(--muted); padding: 6px 12px 2px; }
 .heap-body { padding: 0 12px 8px; }
 .heap-body .empty { margin: 4px 0 2px; font-size: 12px; color: var(--muted); }
+.heap-more { margin: 6px 0 0; font: 11px var(--mono); color: var(--muted); }
 .heap-row { padding: 4px 0 6px; border-bottom: 1px dashed rgba(255, 255, 255, .05); }
 .heap-row:last-child { border-bottom: 0; }
 .heap-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .heap-var { font: 12px var(--mono); color: var(--accent); white-space: nowrap; }
 .heap-meta { font: 11.5px var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .heap-cells { display: block; margin-top: 3px; }
+.heap-fields { font: 11.5px var(--mono); color: #c3e88d; padding: 2px 0 0 4px; }
 .heap-cells text { font: 11px var(--mono); fill: var(--text); }
 .heap-cells text.cell-idx { font-size: 9.5px; fill: #565e72; }
 .heap-cells rect { fill: var(--panel-2); stroke: var(--line); }

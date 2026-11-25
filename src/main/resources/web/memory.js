@@ -382,7 +382,7 @@ const Memory = (() => {
    * bulges outward in the whitespace and never crosses the row text. */
   const MAX_PTR_ARROWS = 4;
 
-  function renderPtrArrows(ptrLinks, addrPoints, width, height) {
+  function renderPtrArrows(ptrLinks, addrPoints, width, height, heapAddrs) {
     const parts = [];
     /* Pointer arrows stay inside the frame: both ends sit on the frame's right
      * edge and the curve bulges into the right gutter, so the tip is never
@@ -414,6 +414,9 @@ const Memory = (() => {
       if (seen[key]) return;
       seen[key] = true;
       if (!target) {
+        // Pointer into a heap object: it is shown in the flat heap panel, so
+        // a "?" here would be a lie.
+        if (heapAddrs && heapAddrs[link.target]) return;
         miss++;
         const ex = clampX(fx + 18);
         parts.push(`<path class="mem-arrow ptr-arrow" d="M ${fx},${fy} L ${ex},${fy}"/>`);
@@ -457,15 +460,37 @@ const Memory = (() => {
         if (node && node.dataAddr) nameByAddr[node.dataAddr] = node.name;
       });
     });
+    const ptrNameByTarget = {};
+    ((step && step.frames) || []).forEach((frame) => {
+      ((frame && frame.vars) || []).forEach((node) => {
+        if (node && node.kind === 'ptr' && node.target) ptrNameByTarget[node.target] = node.name;
+      });
+    });
     const prevByAddr = {};
     ((prevStep && prevStep.heap) || []).forEach((b) => { if (b && b.addr) prevByAddr[b.addr] = b; });
     const room = Math.max(4, Math.floor(((container.clientWidth || 520) - 24) / (CELL_W + CELL_GAP)));
     const rows = blocks.map((b) => {
       const prev = b.addr ? prevByAddr[b.addr] : null;
+      const owner = nameByAddr[b.addr] || ptrNameByTarget[b.addr] || '';
+      if (b.kind === 'record') {
+        const fields = (b.fields || []).slice(0, 4).map((f) => {
+          const label = f.name || '?';
+          return escapeHtml(f.kind === 'ptr' ? label + ' ' + textOf(f) : label + '=' + textOf(f));
+        }).join(' · ');
+        return '<div class="heap-row" data-addr="' + escapeHtml(b.addr || '') + '">' +
+          '<div class="heap-line">' +
+          '<span class="heap-var">' + escapeHtml(owner) + '</span>' +
+          '<span class="heap-meta">' +
+          escapeHtml((b.type || '?') + ' · ' + (b.addr || '') + ' · ' + (b.fields || []).length + ' 字段') +
+          '</span>' +
+          '</div>' +
+          '<div class="heap-fields">' + fields + '</div>' +
+          '</div>';
+      }
       const cells = renderCells(b.items, b.capacity, prev ? prev.items : null, room);
       const count = b.count !== undefined ? b.count : (b.items || []).length;
       const cap = b.capacity === undefined ? '' : ' · cap ' + b.capacity;
-      const name = nameByAddr[b.addr] || '?';
+      const name = owner;
       return '<div class="heap-row" data-addr="' + escapeHtml(b.addr || '') + '">' +
         '<div class="heap-line">' +
         '<span class="heap-var">' + escapeHtml(name) + '</span>' +
@@ -477,6 +502,9 @@ const Memory = (() => {
         cells.svg + '</svg>' +
         '</div>';
     });
+    if (step && step.heapTruncated) {
+      rows.push('<p class="heap-more">（只显示前 64 个堆对象，链表/树太大）</p>');
+    }
     container.innerHTML = rows.join('');
   }
 
@@ -516,7 +544,7 @@ const Memory = (() => {
     /* The heap now lives in the flat panel below the stack (renderHeapPanel);
      * the canvas only draws frames and pointer arrows. */
     const height = y + 8;
-    const ptr = renderPtrArrows(ptrLinks, addrPoints, width, height);
+    const ptr = renderPtrArrows(ptrLinks, addrPoints, width, height, heapAddrs);
     body.push(ptr.svg);
 
     const head = `<text class="mem-title" x="16" y="20">栈</text>`;

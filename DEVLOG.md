@@ -4,7 +4,7 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.4.1（2026-11-25，洛谷风格 25 题压测 + 两个性能修复）
+- 版本：v2.5.0（2026-11-25，P0-1：堆对象可视化）
 - 最后验证：`./smoke.sh` → **PASS**（2026-11-25 10:28，T-9 修复后复测）
 
 ---
@@ -41,7 +41,7 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 ### 0.4 每轮收工必须回写
 1. 本文件 §1（当前状态）
 2. 本文件 §7 顶部加一条 ≤5 行日志
-3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K51 往后编）
+3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K52 往后编）
 
 ---
 
@@ -53,7 +53,7 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 - **已知 bug**：0 个（B1/B2/B3 全部修复）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
 - **代码规模**：Java 848 行｜前端 2385 行（含 html/css）｜Python（tracer）731 行
-- **累计 token**：约 **2.02M 净内容** / 约 5.8M 原始
+- **累计 token**：约 **2.06M 净内容** / 约 5.9M 原始
 
 ---
 
@@ -83,7 +83,7 @@ src/main/resources/web/      index.html style.css app.js(播放器) memory.js(SV
                              editor.js(代码高亮) views.js(兜底) calltree.js(调用树)
 tracer/tracer.py             LLDB 内嵌 Python，逐行断点 → JSONL
 docs/TRACE_SCHEMA.md         数据契约（引擎 ↔ UI）
-docs/PITFALLS.md             坑 K1–K51
+docs/PITFALLS.md             坑 K1–K52
 orders/                      派单文件 + README(模板)
 samples/                     basic vector recursion compile_error stl qs glob maponly
 logs/                        归档日志 + 截图
@@ -111,7 +111,7 @@ logs/                        归档日志 + 截图
 | 标量 / 一维数组 / 二维数组 | ✅ | 数组就地展开成带下标的格子 |
 | `vector` | ✅ | 栈上控制块 + 堆上缓冲 + 箭头 + `capacity` 虚线空位 |
 | `struct` / `class` | ✅ | `{ v = 3, next = → null }` |
-| 指针 / 链表 | ✅ | 括号形箭头连到目标行（2.4px + 9px 箭头，跨帧可见），`ptrDrawn:2 / ptrMiss:0` |
+| 指针 / 链表 | ✅ | 栈内指针连到目标行；`new` 出来的 Node/树节点进「堆（数据区）」平铺（`v=2 · next → 0x…`），循环链表按访问集去重 |
 | 全局变量 | ✅ | `g_count @ 0x000` 独立地址段；库内部静态量已过滤 |
 | `map` | ✅ | `{ apple: 3, banana: 5 }`，**按 key 排序** |
 | `set` | ✅ | `{ 1, 2, 3 }`（插入顺序 3,1,2，显示自动有序） |
@@ -181,6 +181,14 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
   `size` 仍是真实长度，超限节点带 `truncated: true` → 同用例 trace **5.0 MB → 597 KB**
 - 画布：单元格上限按可用宽度算（640px 容器约 11 个），不再画出屏幕
 - 验收：`smoke.sh` PASS（23:04）；无头浏览器 `.cell` 11 个、SVG 宽 595
+
+### T-10 P0-1 堆对象可视化 ✅ 已完成（2026-11-25）
+- 起因：链表程序 `new` 出来的 3 个 Node 在 trace 里 **0 个堆块**，`head` 指向的地址界面不存在
+- tracer：从"用户指针变量 + 记录的指针字段"出发，沿指针走（`_expand_heap`，上限 64 节点 +
+  访问集去重，循环链表会停），把用户 struct/class 作为 `kind:"record"` 堆块写进 `step.heap`
+- 前端：堆面板渲染记录块 `head Node · 0x… · 2 字段` / `v=2 · next → 0x…`；地址不再截短；
+  超过 64 个显示"（只显示前 64 个堆对象）"；指针指向堆对象时不再画 `?` miss
+- 验收：3 节点链表 / 5 节点二叉树 / 循环链表（2 块不重复）/ 200 节点链表（64 块 + 提示，2.9s）
 
 ### T-9 洛谷风格压测（2026-11-25，用户要求"用大量竞赛题测有没有 bug"）
 - 25 题语料（A+B、排序、背包、八皇后、迷宫、BFS、并查集、堆、KMP、高精、map、二维 vector、
@@ -297,6 +305,11 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 ---
 
 ## 7. 进度日志（倒序，每条 ≤5 行）
+
+### 2026-11-25 · T-10 堆对象可视化（v2.5.0）
+- 指针沿链走：`new` 的 Node/树节点进 trace（`kind:"record"`，上限 64、带访问集防环）
+- 堆面板显示 `v=2 · next → 0x…`、全地址、超限提示；指针指向堆对象不再标 `?`
+- 验收：链表 3/二叉树 5/循环链表 2/200 节点 64 块+提示（2.9s）
 
 ### 2026-11-25 · T-9 洛谷风格 25 题压测（v2.4.1）
 - 语料 25 题，逐题比对原生输出：23 一致，2 为按设计截断（单行死循环、八皇后 n=8 超 5000 步）
@@ -417,6 +430,7 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 | T-7.1 输入入口 | ≈0.01M | ≈0.03M |
 | T-8.1 深栈+缩放 | ≈0.02M | ≈0.06M |
 | T-9 洛谷压测+修复 | ≈0.04M | ≈0.12M |
-| **累计** | **≈2.02M** | **≈5.8M** |
+| T-10 堆对象可视化 | ≈0.04M | ≈0.12M |
+| **累计** | **≈2.06M** | **≈5.9M** |
 
 **省 token 的关键**：本文件（≈3k token）替代聊天历史（几十 k）；派单前只读 §1/§4/§5 与相关坑。

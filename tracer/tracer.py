@@ -43,6 +43,11 @@ _max_frames = 32
 # Per-node payload cap: a 2000-element array over 300 steps made a 5 MB trace.
 # `size` still reports the true count; only the items list is cut.
 _MAX_ITEMS = 200
+
+# Heap objects reachable from user pointers (linked lists, trees, ...):
+# lldb knows no "malloc list", so we walk pointer targets we can see.
+_MAX_HEAP_NODES = 64
+_heap_roots = []
 # guard: names seen in the previous step, per live frame activation
 _prev_vars = {}
 
@@ -564,7 +569,19 @@ def _frame_vars(frame, depth=0, heap=None):
                 "value": "（声明中，下一步展开）",
             })
             continue
-        nodes.append(_node(value, heap))
+        node = _node(value, heap)
+        if node.get("kind") == "ptr" and node.get("target") not in (None, "", "0x0"):
+            _heap_roots.append(value)
+        elif node.get("kind") == "record":
+            # A stack record can own the head pointer too (Node n; n.next).
+            try:
+                for i in range(value.GetNumChildren()):
+                    child = value.GetChildAtIndex(i)
+                    if child.GetType().IsPointerType():
+                        _heap_roots.append(child)
+            except Exception:
+                pass
+        nodes.append(node)
     _prev_vars[key] = seen
     return nodes
 
@@ -574,6 +591,52 @@ def _is_user_frame(frame):
         return (frame.GetLineEntry().GetFileSpec().GetFilename() or "") == _src_name
     except Exception:
         return False
+
+
+def _expand_heap(heap):
+    """Walk pointer targets and append user record objects as heap blocks.
+
+    Bounded by _MAX_HEAP_NODES and a visited set, so cyclic lists/trees stop."""
+    seen = set()
+    for block in heap:
+        addr = block.get("addr")
+        if addr:
+            seen.add(addr)
+    queue = list(_heap_roots)
+    count = 0
+    while queue and count < _MAX_HEAP_NODES:
+        value = queue.pop(0)
+        try:
+            target = _ptr_target(value)
+        except Exception:
+            continue
+        if not target or target == "0x0" or target in seen:
+            continue
+        try:
+            pointee = value.Dereference()
+        except Exception:
+            continue
+        if not pointee or not pointee.IsValid():
+            continue
+        vtype = pointee.GetType()
+        if not _is_record(vtype):
+            continue
+        if "std::" in (vtype.GetName() or ""):
+            continue
+        seen.add(target)
+        count += 1
+        node = _node(pointee, None)
+        node["addr"] = target
+        node["kind"] = "record"
+        heap.append(node)
+        try:
+            for i in range(pointee.GetNumChildren()):
+                child = pointee.GetChildAtIndex(i)
+                if child.GetType().IsPointerType():
+                    queue.append(child)
+        except Exception:
+            pass
+    return count >= _MAX_HEAP_NODES and bool(queue)
 
 
 def _dump_frames(thread, heap=None):
@@ -624,7 +687,8 @@ def _addr_key(bp):
 
 def _on_hit(frame, bp_loc, *rest):
     """Breakpoint callback.  Returning False means 'do not stop, keep going'."""
-    global _steps
+    global _steps, _heap_roots
+    _heap_roots = []
     if _steps >= _max_steps:
         # Stop here instead of Kill(): lldb reaps the inferior when the batch
         # exits, which is far quicker than killing from inside a callback.
@@ -644,6 +708,11 @@ def _on_hit(frame, bp_loc, *rest):
         frames = _dump_frames(frame.GetThread(), heap)
     except Exception:
         frames = []
+    heap_truncated = False
+    try:
+        heap_truncated = _expand_heap(heap)
+    except Exception:
+        pass
 
     _emit(
         {
@@ -652,6 +721,7 @@ def _on_hit(frame, bp_loc, *rest):
             "line": line,
             "col": col,
             "frames": frames,
+            "heapTruncated": heap_truncated,
             "heap": heap,
         }
     )
