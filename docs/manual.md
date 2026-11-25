@@ -10,13 +10,13 @@
 
 ### macOS
 
-1. 从 [Releases](https://github.com/yuehanGuan/c-visual/releases) 下载 `c-visual-1.0.0.dmg`
+1. 从 [Releases](https://github.com/yuehanGuan/c-visual/releases/latest) 下载 `c-visual-<版本>.dmg`
 2. 打开 dmg，把 **c可视** 拖进「应用程序」
 3. 首次打开若提示"无法验证开发者"：在「应用程序」里**右键 → 打开**
 
 ### Windows
 
-1. 下载 `c-visual-windows.zip`，解压到任意目录
+1. 从[最新 Release](https://github.com/yuehanGuan/c-visual/releases/latest) 下载 `c-visual-windows.zip`，解压到任意目录
 2. 先安装 [LLVM](https://github.com/llvm/llvm-project/releases)（要 `clang++.exe` 和 `lldb.exe`），把它的 `bin` 目录加进 PATH
 3. 双击 `c-visual\c-visual.exe`
 
