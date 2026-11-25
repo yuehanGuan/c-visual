@@ -4,7 +4,7 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.6.2（2026-11-25，发布 v1.0.0：GitHub Release 双平台包）
+- 版本：v2.6.3（2026-11-25，发布 v1.0.0 + 使用手册）
 - 最后验证：`./smoke.sh` → **PASS**（2026-11-25 10:58，P1 完成后复测）
 
 ---
@@ -53,7 +53,7 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 - **已知 bug**：0 个（B1/B2/B3 全部修复）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
 - **代码规模**：Java 918 行｜前端 2581 行（含 html/css）｜Python（tracer）769 行
-- **累计 token**：约 **2.22M 净内容** / 约 6.3M 原始
+- **累计 token**：约 **2.24M 净内容** / 约 6.4M 原始
 
 ---
 
@@ -181,6 +181,11 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
   `size` 仍是真实长度，超限节点带 `truncated: true` → 同用例 trace **5.0 MB → 597 KB**
 - 画布：单元格上限按可用宽度算（640px 容器约 11 个），不再画出屏幕
 - 验收：`smoke.sh` PASS（23:04）；无头浏览器 `.cell` 11 个、SVG 宽 595
+
+### 使用文档（2026-11-25）
+- 新增 `docs/manual.md`（185 行）：安装/界面/快速上手/功能详解/快捷键/支持写法/FAQ/隐私
+- README 加手册入口 + 「快速上手（5 步）」；截图 `docs/images/overview.png`
+- 手册内容按真实 UI 核对：←/→/空格/Tab 快捷键、折叠、期望输出、历史/导出、上限（32 帧/64 堆对象）
 
 ### 发布 v1.0.0（2026-11-25）
 - GitHub：https://github.com/yuehanGuan/c-visual （public，MIT）
