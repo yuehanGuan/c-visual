@@ -67,15 +67,33 @@ public final class Main {
 
     private static Path resolveTracer() {
         String fromEnv = System.getenv("VIZ_TRACER");
-        Path candidate = fromEnv != null && !fromEnv.isBlank()
-                ? Path.of(fromEnv)
-                : Path.of("tracer", "tracer.py");
-        if (!Files.isRegularFile(candidate)) {
-            System.err.println("找不到 tracer 脚本：" + candidate.toAbsolutePath());
-            System.err.println("请从项目根目录启动，或设置环境变量 VIZ_TRACER");
-            System.exit(2);
+        if (fromEnv != null && !fromEnv.isBlank()) {
+            Path candidate = Path.of(fromEnv);
+            if (Files.isRegularFile(candidate)) {
+                return candidate.toAbsolutePath();
+            }
         }
-        return candidate.toAbsolutePath();
+        Path local = Path.of("tracer", "tracer.py");
+        if (Files.isRegularFile(local)) {
+            return local.toAbsolutePath();
+        }
+        // Packaged app: the tracer is inside the jar.  Extract it next to the
+        // runs so a read-only install location still works.
+        try (InputStream in = Main.class.getResourceAsStream("/tracer.py")) {
+            if (in != null) {
+                Path dir = Path.of(System.getProperty("user.home"), ".cppviz");
+                Files.createDirectories(dir);
+                Path target = dir.resolve("tracer.py");
+                Files.copy(in, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                return target;
+            }
+        } catch (IOException ignored) {
+            // fall through to the error message
+        }
+        System.err.println("找不到 tracer 脚本：tracer/tracer.py（或 jar 内 /tracer.py）");
+        System.err.println("请从项目根目录启动，或设置环境变量 VIZ_TRACER");
+        System.exit(2);
+        return null;
     }
 
     private void handleApi(HttpExchange exchange) throws IOException {

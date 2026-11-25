@@ -1,0 +1,58 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: build dmg
+        run: |
+          chmod +x build.sh package.sh
+          VERSION="${GITHUB_REF_NAME#v}" ./package.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cppviz-macos
+          path: dist/out/*.dmg
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: build zip
+        shell: pwsh
+        run: |
+          $env:VERSION = $env:GITHUB_REF_NAME -replace '^v', ''
+          ./package.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cppviz-windows
+          path: dist/out/*.zip
+          if-no-files-found: error
+
+  publish:
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*

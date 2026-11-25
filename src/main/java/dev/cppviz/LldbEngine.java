@@ -51,8 +51,8 @@ public final class LldbEngine implements TraceEngine {
 
         List<String> cmd = List.of(
                 "lldb", "-b",
-                "-o", "settings set target.output-path " + programOut,
-                "-o", "command script import " + tracerScript,
+                "-o", "settings set target.output-path \"" + programOut + "\"",
+                "-o", "command script import \"" + tracerScript + "\"",
                 "-o", "script import tracer; tracer.bootstrap()",
                 "-o", "run",
                 "-o", "script import tracer; tracer.finish()",

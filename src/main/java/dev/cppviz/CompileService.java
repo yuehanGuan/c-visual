@@ -27,7 +27,8 @@ public final class CompileService {
     public Result compile(String source, Path work) throws IOException, InterruptedException {
         Path src = work.resolve("main.cpp");
         Files.writeString(src, source, StandardCharsets.UTF_8);
-        Path exe = work.resolve("a.out");
+        boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
+        Path exe = work.resolve(windows ? "a.exe" : "a.out");
 
         List<String> cmd = List.of(
                 "clang++", "-std=c++17", "-g", "-O0", "-fno-omit-frame-pointer",

@@ -22,5 +22,7 @@ fi
 
 "$JAVAC" -encoding UTF-8 -d out/classes @out/sources.txt
 cp -R src/main/resources/. out/classes/
+# The tracer ships inside the jar so the packaged app can extract it at runtime.
+cp tracer/tracer.py out/classes/tracer.py
 
 echo "build ok"
