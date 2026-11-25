@@ -26,6 +26,7 @@
     </label>
     <button id="editBtn" class="ghost hidden">编辑代码</button>
     <button id="foldBtn" class="ghost">折叠：开</button>
+    <button id="exportTrace" class="ghost" title="下载当前回放的 trace.jsonl">导出</button>
     <button id="clearRuns" class="ghost" title="删除 ~/.cppviz/runs 下的历史记录">清空历史</button>
     <button id="runBtn" class="primary">运行 ▶</button>
   </div>
@@ -56,6 +57,10 @@
     <details class="io">
       <summary>期望输出（可选）</summary>
       <textarea id="expect" spellcheck="false" placeholder="粘贴标准答案，运行后自动对比"></textarea>
+    </details>
+    <details class="io" id="historyBox">
+      <summary>历史运行</summary>
+      <div id="history" class="history-body"><p class="empty">（展开时加载）</p></div>
     </details>
   </section>
 

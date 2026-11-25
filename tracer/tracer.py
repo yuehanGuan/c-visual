@@ -690,6 +690,17 @@ def _addr_key(bp):
         return None
 
 
+def _output_size():
+    """Bytes of program stdout written so far, or -1 when unknown."""
+    path = os.environ.get("VIZ_OUT", "")
+    if not path:
+        return -1
+    try:
+        return os.path.getsize(path)
+    except OSError:
+        return -1
+
+
 def _on_hit(frame, bp_loc, *rest):
     """Breakpoint callback.  Returning False means 'do not stop, keep going'."""
     global _steps, _heap_roots
@@ -701,6 +712,14 @@ def _on_hit(frame, bp_loc, *rest):
         return True
 
     _steps += 1
+    if _steps % 8 == 0:
+        # stdout is block-buffered when redirected to a file, so the UI would
+        # only see output at exit.  Flush every 8 steps: cheap enough (~1 ms
+        # per step on deep stacks) and the display lags by at most 8 steps.
+        try:
+            frame.EvaluateExpression("(int)fflush((void*)0)")
+        except Exception:
+            pass
     try:
         entry = frame.GetLineEntry()
         line = entry.GetLine()
@@ -730,6 +749,7 @@ def _on_hit(frame, bp_loc, *rest):
             "heapTruncated": heap_truncated,
             "heap": heap,
             "framesTruncated": frames_truncated,
+            "out": _output_size(),
         }
     )
     return False

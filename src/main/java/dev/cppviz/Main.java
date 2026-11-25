@@ -90,6 +90,21 @@ public final class Main {
                 send(exchange, 200, "application/json; charset=utf-8", Json.write(runs.clearRuns()));
                 return;
             }
+            if ("/api/runs".equals(path) && "GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                send(exchange, 200, "application/json; charset=utf-8",
+                        Json.write(Map.of("runs", runs.listRuns())));
+                return;
+            }
+            if (path != null && path.startsWith("/api/runs/")
+                    && "GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                Map<String, Object> detail = runs.runDetail(path.substring("/api/runs/".length()));
+                if (detail == null) {
+                    send(exchange, 404, "application/json; charset=utf-8", "{\"error\":\"no such run\"}");
+                } else {
+                    send(exchange, 200, "application/json; charset=utf-8", Json.write(detail));
+                }
+                return;
+            }
             if (path != null && path.startsWith("/api/trace/")) {
                 handleTrace(exchange, path.substring("/api/trace/".length()));
                 return;

@@ -4,8 +4,8 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.5.1（2026-11-25，P0 全部完成：堆对象 / 崩溃行 / 截断提示 / 期望输出）
-- 最后验证：`./smoke.sh` → **PASS**（2026-11-25 10:46，P0 完成后复测）
+- 版本：v2.6.0（2026-11-25，P1 全部完成：历史/持久化导出/输出按步）
+- 最后验证：`./smoke.sh` → **PASS**（2026-11-25 10:58，P1 完成后复测）
 
 ---
 
@@ -41,7 +41,7 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 ### 0.4 每轮收工必须回写
 1. 本文件 §1（当前状态）
 2. 本文件 §7 顶部加一条 ≤5 行日志
-3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K52 往后编）
+3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K53 往后编）
 
 ---
 
@@ -52,8 +52,8 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 - **阻塞**：无
 - **已知 bug**：0 个（B1/B2/B3 全部修复）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
-- **代码规模**：Java 848 行｜前端 2492 行（含 html/css）｜Python（tracer）759 行
-- **累计 token**：约 **2.10M 净内容** / 约 6.0M 原始
+- **代码规模**：Java 918 行｜前端 2581 行（含 html/css）｜Python（tracer）769 行
+- **累计 token**：约 **2.15M 净内容** / 约 6.1M 原始
 
 ---
 
@@ -83,7 +83,7 @@ src/main/resources/web/      index.html style.css app.js(播放器) memory.js(SV
                              editor.js(代码高亮) views.js(兜底) calltree.js(调用树)
 tracer/tracer.py             LLDB 内嵌 Python，逐行断点 → JSONL
 docs/TRACE_SCHEMA.md         数据契约（引擎 ↔ UI）
-docs/PITFALLS.md             坑 K1–K52
+docs/PITFALLS.md             坑 K1–K53
 orders/                      派单文件 + README(模板)
 samples/                     basic vector recursion compile_error stl qs glob maponly
 logs/                        归档日志 + 截图
@@ -123,7 +123,7 @@ logs/                        归档日志 + 截图
 | 变化摘要（diff） | ✅ | 顶部 chip `s: 1 → 3` |
 | 堆区平面视图 | ✅ | 每个缓冲一行：`v int[5] · cap 8 · 0x940` + 格子（替换原 sparkline 轨迹） |
 | 递归调用树 | ✅ | `main → fib(int) n=4 → n=3 → n=2 → n=1×2` |
-| 程序输出 | ✅ | 只在最后一步显示；可填「期望输出」自动对比（✓ / 第 N 行不一致） |
+| 程序输出 | ✅ | 按步显示已打印部分（每 8 步 flush 一次）；可填「期望输出」自动对比 |
 | 编译错误 | ✅ | 行号标红 + 中文提示 |
 | 编译超时 | ✅ | 弹窗（10s） |
 | TLE / 崩溃 | ✅ | 截断保留 trace 并自动定位最后 200 步（10×）；崩溃行标红 + banner 指明行号 |
@@ -181,6 +181,22 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
   `size` 仍是真实长度，超限节点带 `truncated: true` → 同用例 trace **5.0 MB → 597 KB**
 - 画布：单元格上限按可用宽度算（640px 容器约 11 个），不再画出屏幕
 - 验收：`smoke.sh` PASS（23:04）；无头浏览器 `.cell` 11 个、SVG 宽 595
+
+### T-12 P1 全部完成（2026-11-25）
+1. **历史运行列表** ✅
+   - 后端：每次运行写 `meta.txt`（created/steps/outcome/truncated/lines），
+     `GET /api/runs` 列表（含主代码首行预览）、`GET /api/runs/<id>`（代码 + 输出）
+   - 前端：左栏「历史运行」折叠面板，展开时拉列表；点一条 → 载入代码 + trace + 输出并回放
+   - 验收：27 条历史、点开状态"已载入历史"、步数/代码/输出都对
+2. **代码持久化 + 导出** ✅
+   - 编辑器内容存 `cppviz.code`（输入防抖 500ms、运行前也存），刷新自动恢复（深链示例优先）
+   - 工具条「导出」：下载当前 trace 的 `trace.jsonl`
+   - 验收：刷新后代码恢复；导出后状态栏显示 `已导出 <id>.jsonl`
+3. **输出按步显示** ✅
+   - tracer 每 8 步 `fflush((void*)0)`（`setvbuf(stdout)` 在 lldb 表达式里不可用——`stdout/cstdio` 未声明），
+     每步带 `out` 字节数；前端按字节截取输出前缀，最后一步显示完整输出
+   - 代价：深递归 2002 步 17.6s → 20.8s（仍 < 30s 超时）
+   - 验收：5 行输出在第 8 步显示前 3 行、最后一步显示全部；旧 trace 无 `out` 字段时保持原行为
 
 ### T-11 P0-2 / P0-3 ✅ 已完成（2026-11-25）
 - **崩溃行标红**：crash 时把最后一步的行传给 `CppEditor.setErrorLines`，banner 改成
@@ -315,6 +331,11 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 
 ## 7. 进度日志（倒序，每条 ≤5 行）
 
+### 2026-11-25 · T-12 P1 完成（v2.6.0）
+- 历史列表（meta.txt + /api/runs + 点开回放）、代码持久化、导出 trace
+- 输出按步：每 8 步 fflush，step 带 out 字节数，前端按前缀显示（深递归 +3s）
+- 验收：27 条历史可回放、刷新恢复代码、导出成功、输出逐步出现；smoke PASS（10:58）
+
 ### 2026-11-25 · T-11 P0 收尾（v2.5.1）
 - 崩溃行标红 + banner 指明行号；深栈标题显示「仅显示最近 32 层」
 - 期望输出对比：✓ 一致 / ✗ 第 N 行不一致（少/多 X 行），存 localStorage，样例自带
@@ -446,6 +467,7 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 | T-9 洛谷压测+修复 | ≈0.04M | ≈0.12M |
 | T-10 堆对象可视化 | ≈0.04M | ≈0.12M |
 | T-11 P0 收尾 | ≈0.04M | ≈0.12M |
-| **累计** | **≈2.10M** | **≈6.0M** |
+| T-12 P1 | ≈0.05M | ≈0.15M |
+| **累计** | **≈2.15M** | **≈6.1M** |
 
 **省 token 的关键**：本文件（≈3k token）替代聊天历史（几十 k）；派单前只读 §1/§4/§5 与相关坑。

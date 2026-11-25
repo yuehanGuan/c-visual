@@ -61,3 +61,4 @@
 | K50 | **`thread.GetNumFrames()` 每步都会展开整条调用栈**：2000 层递归时每步 ~24ms，2000 步直接 48s 超时。改成 `for i in range(_max_frames): GetFrameAtIndex(i)` + `IsValid()` 提前 break，`f(2000)` 降到 17.6s | 深递归压测实测；这是"深递归必超时"的根因 |
 | K51 | **全局/静态变量会被塞进每一层帧**：`GetVariables(..., statics=True)` 对每个帧都返回全局数组，八皇后 n=8 的 4 个全局数组 × 8 帧 ≈ 960 项/步 → 16MB。只让最内层帧带 statics：`GetVariables(True, True, depth == 0, True)` | 注意该 API 的实参顺序是 (arguments, locals, statics, in_scope)，跟文档顺序不同（实测确认） |
 | K52 | **lldb 没有"堆分配列表"，堆对象只能沿用户指针自己走**：从 ptr 变量 + 记录里的指针字段出发，`Dereference()` 后只收用户 struct/class（`std::` 跳过），用 `target` 地址做访问集去重（循环链表/树会停），上限 64 个节点并把 `heapTruncated` 传给前端 | T-10 实测：3 节点链表/二叉树/环链都正确；200 节点链表 2.9s、64 块 + 提示 |
+| K53 | **想让"输出按步显示"，用 `fflush((void*)0)` 而不是 `setvbuf`**：lldb 的表达式里 `stdout`/`cstdio` 都**未声明**（`use of undeclared identifier 'stdout'` / `'cstdio' file not found`），`setvbuf` 调不了；`(int)fflush((void*)0)` 可以（刷所有流）。每次 ~8ms，所以每 8 步一次：深递归 2002 步只 +3s（17.6→20.8s） | T-12.4 实测；tracer 每步带 `out` 字节数，前端按前缀显示 |

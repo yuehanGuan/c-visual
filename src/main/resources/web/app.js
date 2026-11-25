@@ -201,6 +201,17 @@ int main() {
     el.banner.classList.add('hidden');
   }
 
+  const CODE_KEY = 'cppviz.code';
+  let codeTimer = 0;
+
+  function stashCode() {
+    try {
+      localStorage.setItem(CODE_KEY, CppEditor.getValue());
+    } catch (ignored) {
+      // private mode: code just won't persist
+    }
+  }
+
   let dialogOnOk = null;
 
   const ZOOM_KEY = 'cppviz.zoom';
@@ -320,6 +331,69 @@ int main() {
     }
   }
 
+  /* History: list stored runs and reopen one (code + trace + output). */
+  async function loadHistory() {
+    if (!el.history) return;
+    try {
+      const response = await fetch('/api/runs');
+      const data = await response.json();
+      const rows = (data.runs || []).filter((r) => r.trace).map((r) => {
+        const when = new Date(r.created).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        const steps = r.steps >= 0 ? r.steps + ' 步' : '';
+        const outcome = r.outcome ? ' · ' + r.outcome : '';
+        return '<button class="history-item" data-id="' + r.id + '">' +
+          '<span class="hi-time">' + when + '</span>' +
+          '<span class="hi-meta">' + steps + outcome + '</span>' +
+          '<span class="hi-preview">' + Memory.escapeHtml(r.preview || '') + '</span>' +
+          '</button>';
+      });
+      el.history.innerHTML = rows.length ? rows.join('') : '<p class="empty">（还没有可回放的历史）</p>';
+    } catch (failure) {
+      el.history.innerHTML = '<p class="empty">（加载失败）</p>';
+    }
+  }
+
+  async function openRun(id) {
+    try {
+      const detail = await (await fetch('/api/runs/' + id)).json();
+      if (detail.code) CppEditor.setValue(detail.code);
+      await loadTrace(id);
+      state.programOutput = detail.programOutput || '';
+      el.programOutput.textContent = '';
+      CppEditor.setMode('play');
+      el.editBtn.classList.remove('hidden');
+      goTo(0);
+      checkExpect();
+      el.status.textContent = '已载入历史';
+    } catch (failure) {
+      showBanner('打开历史失败：' + failure);
+    }
+  }
+
+  /* Download the current trace as the raw JSONL the engine wrote. */
+  async function exportTrace() {
+    const id = state.traceId;
+    if (!id) {
+      el.status.textContent = '还没有可导出的 trace';
+      return;
+    }
+    try {
+      const response = await fetch('/api/trace/' + id);
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = id + '.jsonl';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+      el.status.textContent = '已导出 ' + id + '.jsonl';
+    } catch (failure) {
+      el.status.textContent = '导出失败：' + failure;
+    }
+  }
+
   function diagText(diags) {
     return (diags || []).map((d) => {
       const where = d.line > 0 ? `第 ${d.line} 行${d.col > 0 ? ` 第 ${d.col} 列` : ''}：` : '';
@@ -330,6 +404,7 @@ int main() {
 
   async function run() {
     stashStdin();
+    stashCode();
     stop();
     hideBanner();
     el.runBtn.disabled = true;
@@ -396,6 +471,7 @@ int main() {
     el.programOutput.textContent = result.programOutput || '';
     state.programOutput = result.programOutput || '';
     checkExpect();
+    if (el.historyBox && el.historyBox.open) loadHistory();
     el.engineTag.textContent = state.meta && state.meta.engine ? state.meta.engine : '';
     el.status.textContent = result.outcome === 'ok' ? '就绪' : '';
     CppEditor.setMode('play');
@@ -411,6 +487,7 @@ int main() {
   }
 
   async function loadTrace(traceId) {
+    state.traceId = traceId;
     const response = await fetch(`/api/trace/${traceId}`);
     const text = await response.text();
     const steps = [];
@@ -442,6 +519,19 @@ int main() {
     }
   }
 
+  /* Trace stdout is a growing byte count; show only what has been printed. */
+  function outputText(bytes) {
+    const full = state.programOutput || '';
+    if (typeof bytes !== 'number' || bytes < 0) return full;
+    if (bytes === 0) return '';
+    try {
+      const encoded = new TextEncoder().encode(full);
+      return new TextDecoder().decode(encoded.slice(0, bytes));
+    } catch (ignored) {
+      return full.slice(0, bytes);
+    }
+  }
+
   function goTo(index) {
     if (state.steps.length === 0) return;
     const clamped = Math.max(0, Math.min(state.steps.length - 1, index));
@@ -459,7 +549,13 @@ int main() {
     el.counter.textContent = counterText(clamped);
     el.scrub.value = String(clamped);
     const atEnd = clamped === state.steps.length - 1;
-    el.programOutput.textContent = atEnd ? (state.programOutput || '') : '（程序运行结束后显示）';
+    if (atEnd) {
+      el.programOutput.textContent = state.programOutput || '';
+    } else if (step && step.out !== undefined) {
+      el.programOutput.textContent = outputText(step.out);
+    } else {
+      el.programOutput.textContent = '（程序运行结束后显示）';
+    }
   }
 
   function counterText(idx) {
@@ -576,6 +672,12 @@ int main() {
     el.zoomOut.addEventListener('click', () => setZoom(zoom - ZOOM_STEP));
     el.zoomIn.addEventListener('click', () => setZoom(zoom + ZOOM_STEP));
 
+    el.exportTrace.addEventListener('click', exportTrace);
+    el.source.addEventListener('input', () => {
+      if (codeTimer) clearTimeout(codeTimer);
+      codeTimer = setTimeout(stashCode, 500);
+    });
+
     el.clearRuns.addEventListener('click', () => {
       showDialog('清空历史记录',
         '将删除 ~/.cppviz/runs 下的所有历史 trace，无法恢复。确定继续？', clearRuns);
@@ -592,6 +694,13 @@ int main() {
     el.expect.addEventListener('input', () => {
       if (expectTimer) clearTimeout(expectTimer);
       expectTimer = setTimeout(() => { stashExpect(); checkExpect(); }, 300);
+    });
+    el.historyBox.addEventListener('toggle', () => {
+      if (el.historyBox.open) loadHistory();
+    });
+    el.history.addEventListener('click', (event) => {
+      const button = event.target.closest('.history-item');
+      if (button) openRun(button.dataset.id);
     });
     el.stdinAdd.addEventListener('click', () => {
       stashStdin();
@@ -662,7 +771,11 @@ int main() {
     el.samples = $('samples');
     el.maxSteps = $('maxSteps');
     el.stdin = $('stdin');
+    el.source = $('source');
+    el.exportTrace = $('exportTrace');
     el.expect = $('expect');
+    el.history = $('history');
+    el.historyBox = $('historyBox');
     el.expectStatus = $('expectStatus');
     el.stdinSet = $('stdinSet');
     el.stdinAdd = $('stdinAdd');
@@ -680,7 +793,14 @@ int main() {
     initZoom();
 
     CppEditor.init();
-    CppEditor.setValue(SAMPLES.basic);
+    let initialCode = SAMPLES.basic;
+    try {
+      const saved = localStorage.getItem(CODE_KEY);
+      if (saved) initialCode = saved;
+    } catch (ignored) {
+      // default sample
+    }
+    CppEditor.setValue(initialCode);
     bind();
 
     // Deep link for demos/screenshots: #sample=vector&run=42

@@ -64,6 +64,7 @@ public final class LldbEngine implements TraceEngine {
         builder.environment().put("LC_ALL", "C");
         builder.environment().put("VIZ_SRC", source.toAbsolutePath().toString());
         builder.environment().put("VIZ_MAX_STEPS", String.valueOf(maxSteps));
+        builder.environment().put("VIZ_OUT", programOut.toString());
         if (stdinFile != null) {
             builder.environment().put("VIZ_STDIN", stdinFile.toAbsolutePath().toString());
         }
