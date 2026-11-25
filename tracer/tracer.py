@@ -37,7 +37,9 @@ _max_steps = 5000
 _ended = False
 _src = ""
 _src_name = ""
-_max_frames = 64
+# 64 frames x every step blew a 2000-deep recursion past the 30s budget;
+# 32 keeps the visible stack useful and halves the trace size.
+_max_frames = 32
 # Per-node payload cap: a 2000-element array over 300 steps made a 5 MB trace.
 # `size` still reports the true count; only the items list is cut.
 _MAX_ITEMS = 200
@@ -518,7 +520,9 @@ def _frame_key(frame, depth):
 def _frame_vars(frame, depth=0, heap=None):
     nodes = []
     try:
-        values = frame.GetVariables(True, True, True, True)
+        # Globals/statics are the same memory in every frame; only the innermost
+        # frame carries them, otherwise 8 queues x 8 frames multiplies the trace.
+        values = frame.GetVariables(True, True, depth == 0, True)
     except Exception:
         return nodes
     key = _frame_key(frame, depth)
@@ -576,13 +580,14 @@ def _dump_frames(thread, heap=None):
     """Frames from the user's own file only; runtime frames are noise."""
     frames = []
     alive = set()
-    try:
-        total = min(thread.GetNumFrames(), _max_frames)
-    except Exception:
-        total = 1
-    for index in range(total):
+    # Do NOT call thread.GetNumFrames(): it unwinds the *whole* stack on every
+    # step, which turns a 2000-deep recursion into ~25 ms/step.  Walk at most
+    # _max_frames frames and stop at the first invalid one.
+    for index in range(_max_frames):
         try:
             frame = thread.GetFrameAtIndex(index)
+            if not frame or not frame.IsValid():
+                break
             if not _is_user_frame(frame):
                 continue
             name = frame.GetDisplayFunctionName() or frame.GetFunctionName() or "?"

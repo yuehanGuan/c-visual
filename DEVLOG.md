@@ -4,8 +4,8 @@
 > 历史日志在 `logs/`，坑的全文在 `docs/PITFALLS.md`，数据契约在 `docs/TRACE_SCHEMA.md`。
 
 - 项目根：`cppviz/`
-- 版本：v2.4.0（2026-11-25，深栈布局修复 + 记忆视图缩放）
-- 最后验证：`./smoke.sh` → **PASS**（2026-11-25 09:07，T-8.1 后复测）
+- 版本：v2.4.1（2026-11-25，洛谷风格 25 题压测 + 两个性能修复）
+- 最后验证：`./smoke.sh` → **PASS**（2026-11-25 10:28，T-9 修复后复测）
 
 ---
 
@@ -41,7 +41,7 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 ### 0.4 每轮收工必须回写
 1. 本文件 §1（当前状态）
 2. 本文件 §7 顶部加一条 ≤5 行日志
-3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K49 往后编）
+3. 发现新坑 → 追加到 `docs/PITFALLS.md`（编号接着 K51 往后编）
 
 ---
 
@@ -53,7 +53,7 @@ openclaw agent --agent main --session-key <唯一名字> --thinking off \
 - **已知 bug**：0 个（B1/B2/B3 全部修复）
 - **环境**：macOS 26.2 arm64｜Apple clang 17｜lldb 17｜JDK 21.0.13（`/opt/homebrew/opt/openjdk@21`）
 - **代码规模**：Java 848 行｜前端 2385 行（含 html/css）｜Python（tracer）731 行
-- **累计 token**：约 **1.98M 净内容** / 约 5.7M 原始
+- **累计 token**：约 **2.02M 净内容** / 约 5.8M 原始
 
 ---
 
@@ -83,7 +83,7 @@ src/main/resources/web/      index.html style.css app.js(播放器) memory.js(SV
                              editor.js(代码高亮) views.js(兜底) calltree.js(调用树)
 tracer/tracer.py             LLDB 内嵌 Python，逐行断点 → JSONL
 docs/TRACE_SCHEMA.md         数据契约（引擎 ↔ UI）
-docs/PITFALLS.md             坑 K1–K49
+docs/PITFALLS.md             坑 K1–K51
 orders/                      派单文件 + README(模板)
 samples/                     basic vector recursion compile_error stl qs glob maponly
 logs/                        归档日志 + 截图
@@ -181,6 +181,16 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
   `size` 仍是真实长度，超限节点带 `truncated: true` → 同用例 trace **5.0 MB → 597 KB**
 - 画布：单元格上限按可用宽度算（640px 容器约 11 个），不再画出屏幕
 - 验收：`smoke.sh` PASS（23:04）；无头浏览器 `.cell` 11 个、SVG 宽 595
+
+### T-9 洛谷风格压测（2026-11-25，用户要求"用大量竞赛题测有没有 bug"）
+- 25 题语料（A+B、排序、背包、八皇后、迷宫、BFS、并查集、堆、KMP、高精、map、二维 vector、
+  string、EOF、T 组数据、C++17、深递归、大数组、死循环…），逐题比对原生输出：**23/25 一致**
+- 修 **B4：深递归每步全栈展开** —— `_dump_frames` 调 `thread.GetNumFrames()` 会把整条栈
+  展开一遍；`f(2000)` 48.5s → 25.5s；配合帧上限 64→32 → **17.6s / 8.1MB**（原 30s 超时只到 1459 步）
+- 修 **B5：全局变量在每一层帧重复** —— 八皇后 `a/b/c/d` 全局数组 × 8 层帧 ≈ 960 项/步；
+  改为只在最内层帧带 statics：n=6 用例 **3.6MB/7.7s → 0.9MB/3.4s**，n=8 从 30s 超时变为按预算截断
+- 已知限制（非 bug）：① 整段程序写一行时行断点只触发一次（K17），死循环会走 idle 超时；
+  ② 截断/超时时程序 stdout 缓冲未刷出，输出面板为空（K46）
 
 ### T-8.1 深栈布局 + 记忆视图缩放（2026-11-25，用户反馈"栈深了图特别小"）
 - 真因不是"图变小"，而是**被挤没**：42 层递归时调用树长到 840px，把记忆区挤到 24px；
@@ -287,6 +297,11 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 ---
 
 ## 7. 进度日志（倒序，每条 ≤5 行）
+
+### 2026-11-25 · T-9 洛谷风格 25 题压测（v2.4.1）
+- 语料 25 题，逐题比对原生输出：23 一致，2 为按设计截断（单行死循环、八皇后 n=8 超 5000 步）
+- 修 B4 全栈展开（f(2000) 48.5s→17.6s）、B5 全局变量每帧重复（八皇后 n=6 3.6MB→0.9MB）
+- 测试集与跑法见 tests/luogu/；已知限制：单行循环、截断时输出丢失
 
 ### 2026-11-25 · T-8.1 深栈布局 + 缩放（v2.4.0）
 - 真因：深递归时调用树把记忆区挤到 24px，SVG 被 flex-shrink 压成 0 高 → 布局修正
@@ -401,6 +416,7 @@ B2 真因已定位（`LC_ALL=C` → 内嵌 Python 丢弃非 ASCII，见 §4）�
 | T-6 堆区平面视图 | ≈0.03M | ≈0.09M |
 | T-7.1 输入入口 | ≈0.01M | ≈0.03M |
 | T-8.1 深栈+缩放 | ≈0.02M | ≈0.06M |
-| **累计** | **≈1.98M** | **≈5.7M** |
+| T-9 洛谷压测+修复 | ≈0.04M | ≈0.12M |
+| **累计** | **≈2.02M** | **≈5.8M** |
 
 **省 token 的关键**：本文件（≈3k token）替代聊天历史（几十 k）；派单前只读 §1/§4/§5 与相关坑。
